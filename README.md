@@ -31,6 +31,24 @@ uv run --with 'openvino==2026.4.1' scan_players.py matches/<match-directory>
 
 The first scan downloads Intel’s Open Model Zoo person-reidentification-retail-0288 weights, verifies their checksums, and caches local crops and embeddings. The scan samples once per second, combines whole-body similarity with shirt and shorts colors, and requires agreement across adjacent samples. It saves at most one representative appearance per player per 45-second window. A clear match adds an ungraded appearance tag. Weaker matches appear under **Review player matches**, where you can compare the two crops, watch the surrounding footage, choose a different player, or dismiss the match. Add another manual pin or confirm a review to give the next scan another reference. Repeated scans preserve decisions and reuse cached detections. Reels still use the clips you mark to keep.
 
+### Find touches across the recording
+
+Choose **Find touches** in the film room. The scan runs locally in the background, shows progress, and refreshes the library when finished. It covers the entire prepared recording, matches contacts to the roster using your existing player references, and includes detected clips in player pages and reels by default.
+
+Use **Uncertain touches** to prioritize lower-confidence contact or identity matches. **Dismiss** removes a detection from normal browsing, player counts, and exports; **Undo** restores it immediately. The **Dismissed touches** filter keeps all decisions recoverable after a refresh. In the viewer, **Contact** jumps to the predicted contact, **Looks right** confirms it, and the existing tag editor changes the player or touch type. Rerunning the scan preserves edits, confirmations, and dismissals.
+
+For a new recording, label the roster and run the player scan first. To run touch detection from a terminal:
+
+```sh
+uv run --locked scan_touches.py matches/<match-directory>
+```
+
+The first pass downloads checksum-pinned model weights. Completed minutes are cached; interrupted runs resume them. Three workers are the default; use `--workers 1` to reduce CPU use. `--threshold 0.5` is the default contact threshold. Lowering it admits more candidates, but independent ball-motion validation still applies. The scan is local and does not upload footage.
+
+The detector uses the MIT-licensed [RAVEL-VB-013 contact model and VballNetFastV1 ball tracker](https://github.com/asigatchov/fast-volleyball-tracking-inference/tree/c3864156a4dfbd5af3f00f427ab0fc4bfe7af5b5). A temporal contact prediction must also have a moving ball near the predicted player in the independent tracker. Existing OpenVINO player embeddings and clothing references assign the identity. OpenVINO inference for the contact model must use full precision on this Mac; reduced precision suppresses player proposals. License: `models/RAVEL-LICENSE`.
+
+Automatic events are labeled **Touch**, because the model detects contact but does not reliably distinguish serve, pass, set, attack, block, or dig. Confidence flags are ranking signals, not calibrated accuracy percentages. Occlusion, distant players, balls held between points, and similar clothing can still cause misses or false matches. Original manual touch labels and descriptions are preserved. Overlapping clips are merged when exporting a reel so the same footage is not repeated.
+
 ### Appearance model
 
 For clothing suggestions on a new checkout, install the OpenCV Zoo YOLOX weights:
@@ -49,6 +67,6 @@ The frontend uses shadcn/ui and Tailwind. Run `bun run typecheck` or `bun run bu
 
 ### Play descriptions and player clips
 
-Player filters, sidebar counts, and player reel exports include only clips with a labeled Serve, Pass, Set, Attack, Block, or Dig by that player. Appearance matches help identify people during review and do not qualify a clip for their reel. All clips remains the full library.
+Player filters, sidebar counts, and player reel exports include only clips with a labeled Touch, Serve, Pass, Set, Attack, Block, or Dig by that player. Appearance matches help identify people during review and do not qualify a clip for their reel. All clips remains the full library.
 
 Clips have a short title (`note`) and an optional `description`. Summaries appear on cards, in the viewer, and in search. Edit clip details to describe what happened; keep uncertain outcomes explicit. Selecting a touch is required for new tags, with a separate Appearance only option for identity labels.

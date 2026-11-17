@@ -6,7 +6,25 @@ export type Tag = Mark & {
   skill: string
   result: string
 }
+export type Detection = {
+  time: number
+  score: number
+  identityScore: number
+  identityMargin: number
+  uncertain: boolean
+  status: "automatic" | "confirmed" | "dismissed"
+  box: number[]
+}
+export type ScanStatus = {
+  state: "idle" | "running" | "complete" | "failed"
+  phase?: string
+  completed?: number
+  total?: number
+  added?: number
+  detected?: number
+}
 export type Clip = {
+  detection?: Detection
   id: string
   start: number
   end: number
@@ -36,9 +54,22 @@ export function clock(seconds: number) {
   )
 }
 
-export const touchSkills = ["Serve", "Pass", "Set", "Attack", "Block", "Dig"]
+export const touchSkills = [
+  "Touch",
+  "Serve",
+  "Pass",
+  "Set",
+  "Attack",
+  "Block",
+  "Dig",
+]
 
-export function hasTouch(clip: Clip, player?: string) {
+export function hasTouch(
+  clip: Clip,
+  player?: string,
+  includeDismissed = false,
+) {
+  if (!includeDismissed && clip.detection?.status === "dismissed") return false
   return clip.tags.some(
     (t) => (!player || t.name === player) && touchSkills.includes(t.skill),
   )

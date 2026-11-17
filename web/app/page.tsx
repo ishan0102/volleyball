@@ -10,6 +10,8 @@ import {
   Play,
   Plus,
   Search,
+  ScanLine,
+  Undo2,
   X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -30,11 +32,21 @@ import {
   type Mark,
   type Match,
   type Tag,
+  type ScanStatus,
+  type Detection,
 } from "@/lib/film"
 
 type Pending = Draft & { original?: Tag }
 type Saved = { id: string; match: Match }
-type ViewFilter = "all" | "untagged" | "touches" | "automatic" | "confirmed"
+type ViewFilter =
+  | "all"
+  | "untagged"
+  | "touches"
+  | "automatic"
+  | "confirmed"
+  | "detected"
+  | "uncertain"
+  | "dismissed"
 
 export default function FilmRoom() {
   const [match, setMatch] = useState<Match | null>(null)
@@ -53,6 +65,13 @@ export default function FilmRoom() {
   const [status, setStatus] = useState("")
   const [exporting, setExporting] = useState(false)
   const [download, setDownload] = useState("")
+  const [scan, setScan] = useState<ScanStatus>({ state: "idle" })
+  const [startingScan, setStartingScan] = useState(false)
+  const [undo, setUndo] = useState<{
+    id: string
+    status: Detection["status"]
+  } | null>(null)
+  const scanWasRunning = useRef(false)
   const video = useRef<HTMLVideoElement>(null)
   const dialog = useRef<HTMLDialogElement>(null)
   const lock = useRef(false)
@@ -87,9 +106,16 @@ export default function FilmRoom() {
       setReel(params.get("reel") === "1")
       setQuery(params.get("q") || "")
       setFilter(
-        (["all", "untagged", "touches", "automatic", "confirmed"].includes(
-          params.get("filter") || "",
-        )
+        ([
+          "all",
+          "untagged",
+          "touches",
+          "automatic",
+          "confirmed",
+          "detected",
+          "uncertain",
+          "dismissed",
+        ].includes(params.get("filter") || "")
           ? params.get("filter")
           : "all") as ViewFilter,
       )
@@ -182,9 +208,103 @@ export default function FilmRoom() {
     return () => v.removeEventListener("loadedmetadata", position)
   }, [active?.id])
 
+  useEffect(() => {
+    let alive = true
+    async function poll() {
+      try {
+        const next = await api<ScanStatus>("/touch-scan")
+        if (!alive) return
+        setScan(next)
+        if (scanWasRunning.current && next.state === "complete") {
+          const updated = await api<Match>("/match")
+          if (alive) {
+            setMatch(updated)
+            setDownload("")
+          }
+        }
+        scanWasRunning.current = next.state === "running"
+      } catch {
+        /* Library remains usable while the service restarts. */
+      }
+    }
+    void poll()
+    const interval = setInterval(poll, 3000)
+    return () => {
+      alive = false
+      clearInterval(interval)
+    }
+  }, [])
+
+  async function startScan() {
+    setStartingScan(true)
+    try {
+      setScan(await api<ScanStatus>("/scan-touches", {}))
+      scanWasRunning.current = true
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not start scan")
+    } finally {
+      setStartingScan(false)
+    }
+  }
+
+  async function reviewTouch(
+    c: Clip,
+    status: Detection["status"],
+    rememberUndo = true,
+  ) {
+    if (!match || !c.detection || lock.current || draft) return
+    lock.current = true
+    setBusy(true)
+    try {
+      const result = await api<Saved>("/review-touch", {
+        id: c.id,
+        status,
+        revision: match.revision,
+      })
+      setUndo(rememberUndo ? { id: c.id, status: c.detection.status } : null)
+      setMatch(result.match)
+      setDownload("")
+      setStatus(
+        status === "dismissed"
+          ? "Touch dismissed"
+          : status === "confirmed"
+            ? "Touch confirmed"
+            : "Touch restored",
+      )
+      if (status === "dismissed" && id === c.id) {
+        const next = filtered[index + 1] ?? filtered[index - 1]
+        if (next) {
+          autoplay.current = true
+          seekTo.current = next.start
+          setId(next.id)
+        } else {
+          video.current?.pause()
+          setId("")
+          dialog.current?.close()
+        }
+      }
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "Could not review touch",
+      )
+    } finally {
+      lock.current = false
+      setBusy(false)
+    }
+  }
+  function undoTouch() {
+    const c = match?.clips.find((c) => c.id === undo?.id)
+    if (c && undo) void reviewTouch(c, undo.status, false)
+  }
+
   const scoped =
     match?.clips.filter(
-      (c) => (!player || hasTouch(c, player)) && (!reel || c.keep),
+      (c) =>
+        (filter === "dismissed"
+          ? c.detection?.status === "dismissed"
+          : c.detection?.status !== "dismissed") &&
+        (!player || hasTouch(c, player, filter === "dismissed")) &&
+        (!reel || c.keep),
     ) ?? []
   const filtered = scoped
     .filter((c) => {
@@ -192,15 +312,19 @@ export default function FilmRoom() {
         ? c.tags.filter((t) => t.name === player)
         : c.tags
       const passes =
-        filter === "untagged"
-          ? !c.tags.length
-          : filter === "touches"
-            ? selectedTags.some((t) => t.skill !== "Appearance")
-            : filter === "automatic"
-              ? selectedTags.some((t) => t.source === "automatic")
-              : filter === "confirmed"
-                ? selectedTags.some((t) => t.source !== "automatic")
-                : true
+        filter === "detected"
+          ? !!c.detection
+          : filter === "uncertain"
+            ? c.detection?.uncertain && c.detection.status === "automatic"
+            : filter === "untagged"
+              ? !c.tags.length
+              : filter === "touches"
+                ? selectedTags.some((t) => t.skill !== "Appearance")
+                : filter === "automatic"
+                  ? selectedTags.some((t) => t.source === "automatic")
+                  : filter === "confirmed"
+                    ? selectedTags.some((t) => t.source !== "automatic")
+                    : true
       const text = [
         c.note,
         c.description,
@@ -220,7 +344,12 @@ export default function FilmRoom() {
     )
   const index = filtered.findIndex((c) => c.id === id)
   const kept =
-    match?.clips.filter((c) => c.keep && (!player || hasTouch(c, player))) ?? []
+    match?.clips.filter(
+      (c) =>
+        c.keep &&
+        c.detection?.status !== "dismissed" &&
+        (!player || hasTouch(c, player)),
+    ) ?? []
 
   function remember(value: Pending | null) {
     setDraft(value)
@@ -408,6 +537,14 @@ export default function FilmRoom() {
           <div className="heading-actions">
             <Button
               variant="outline"
+              disabled={!match || startingScan || scan.state === "running"}
+              onClick={startScan}
+            >
+              <ScanLine size={16} />
+              {scan.state === "running" ? "Scanning…" : "Find touches"}
+            </Button>
+            <Button
+              variant="outline"
               disabled={!filtered.length}
               onClick={() => choose(filtered[0])}
             >
@@ -426,6 +563,33 @@ export default function FilmRoom() {
             )}
           </div>
         </div>
+        {scan.state !== "idle" && (
+          <div className="scan-progress" role="status">
+            <div>
+              <strong>
+                {scan.state === "running"
+                  ? scan.phase
+                  : scan.state === "complete"
+                    ? "Whole-match scan complete"
+                    : "Scan paused"}
+              </strong>
+              <span>
+                {scan.state === "running"
+                  ? `${scan.completed ?? 0} / ${scan.total ?? "…"} minutes processed`
+                  : scan.state === "complete"
+                    ? `${scan.detected ?? 0} contacts detected · included unless you dismiss them`
+                    : scan.phase}
+              </span>
+            </div>
+            {scan.state === "running" && (
+              <progress
+                aria-label="Touch scan progress"
+                value={scan.completed ?? 0}
+                max={scan.total ?? 60}
+              />
+            )}
+          </div>
+        )}
         {player && (
           <p className="scope-note">
             Clips with a labeled touch by {player}. Appearance matches stay in{" "}
@@ -460,6 +624,9 @@ export default function FilmRoom() {
               <option value="all">All labels</option>
               <option value="untagged">No player tags ({unlabeled})</option>
               <option value="touches">Touch labeled</option>
+              <option value="detected">Detected touches</option>
+              <option value="uncertain">Uncertain touches</option>
+              <option value="dismissed">Dismissed touches</option>
               <option value="automatic">Auto-tagged</option>
               <option value="confirmed">Player confirmed</option>
             </NativeSelect>
@@ -507,17 +674,29 @@ export default function FilmRoom() {
         {!active && status && (
           <p className="notice" role="status">
             {status}
+            {undo && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={undoTouch}
+              >
+                <Undo2 size={14} /> Undo
+              </Button>
+            )}
           </p>
         )}
         {match && (
           <ClipLibrary
             clips={filtered.slice(0, limit)}
+            scanning={scan.state === "running"}
             player={player}
             layout={layout}
             choose={choose}
             busy={busy}
             keep={(c) => void persist({ ...c, keep: !c.keep })}
             reset={reset}
+            review={(c, status) => void reviewTouch(c, status)}
           />
         )}
         {filtered.length > limit && (
@@ -619,6 +798,16 @@ export default function FilmRoom() {
                 {status && (
                   <p className="notice" role="status">
                     {status}
+                    {undo && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={undoTouch}
+                      >
+                        <Undo2 size={14} /> Undo
+                      </Button>
+                    )}
                   </p>
                 )}
               </div>
@@ -630,6 +819,7 @@ export default function FilmRoom() {
                   playhead={() => video.current?.currentTime ?? 0}
                   seek={seek}
                   save={persist}
+                  review={(c, status) => void reviewTouch(c, status)}
                   editTag={(t) => {
                     seek(t.time)
                     remember({

@@ -11,6 +11,7 @@ type Props = {
   seek: (time: number) => void
   save: (c: Clip) => Promise<boolean>
   editTag: (tag: Tag) => void
+  review: (clip: Clip, status: "confirmed" | "dismissed" | "automatic") => void
 }
 export function ClipDetails({
   clip,
@@ -19,6 +20,7 @@ export function ClipDetails({
   seek,
   save,
   editTag,
+  review,
 }: Props) {
   const [details, setDetails] = useState<Clip | null>(null)
   const [error, setError] = useState("")
@@ -49,10 +51,16 @@ export function ClipDetails({
           <Button
             variant={clip.keep ? "secondary" : "outline"}
             size="sm"
-            disabled={busy || !!details}
+            disabled={
+              busy || !!details || clip.detection?.status === "dismissed"
+            }
             onClick={() => save({ ...clip, keep: !clip.keep })}
           >
-            {clip.keep ? "Kept in reel" : "Keep in reel"}
+            {clip.detection?.status === "dismissed"
+              ? "Excluded from reel"
+              : clip.keep
+                ? "Kept in reel"
+                : "Keep in reel"}
           </Button>
           <Button
             variant="ghost"
@@ -68,6 +76,59 @@ export function ClipDetails({
           </Button>
         </div>
       </div>
+      {clip.detection && (
+        <div className="touch-review-panel">
+          <strong>
+            {clip.detection.status === "dismissed"
+              ? "Dismissed touch"
+              : clip.detection.status === "confirmed"
+                ? "Touch confirmed"
+                : clip.detection.uncertain
+                  ? "Uncertain touch · included"
+                  : "Detected touch · included"}
+          </strong>
+          <p>
+            Jump to the contact to check the play or change the player below.
+          </p>
+          <div className="buttons">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => seek(clip.detection!.time)}
+            >
+              Contact · {clock(clip.detection.time)}
+            </Button>
+            {clip.detection.status !== "confirmed" &&
+              clip.detection.status !== "dismissed" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => review(clip, "confirmed")}
+                >
+                  Looks right
+                </Button>
+              )}
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() =>
+                review(
+                  clip,
+                  clip.detection!.status === "dismissed"
+                    ? "automatic"
+                    : "dismissed",
+                )
+              }
+            >
+              {clip.detection.status === "dismissed"
+                ? "Restore touch"
+                : "Dismiss touch"}
+            </Button>
+          </div>
+        </div>
+      )}
       {!details &&
         (clip.description ? (
           <p className="play-description">{clip.description}</p>

@@ -8,6 +8,9 @@ import fcntl
 from pathlib import Path
 import re
 import threading
+import os
+import subprocess
+import sys
 from urllib.parse import unquote
 from uuid import uuid4
 
@@ -30,11 +33,20 @@ def update(state, data):
         item = clip(start, end)
         item["id"] = uuid4().hex
         state["clips"].append(item)
+    note = str(data["note"])[:300]
+    detection = item.get("detection")
+    if detection:
+        old_name = detection.get("name", "Unknown player")
+        actor = next((t for t in tags if t.get("id") == item["id"]), None)
+        if actor and actor["name"] != old_name:
+            if note == f"{old_name} · detected touch":
+                note = f"{actor['name']} · detected touch"
+            detection["name"] = actor["name"]
     item.update(
         start=start,
         end=end,
         tags=tags,
-        note=str(data["note"])[:300],
+        note=note,
         description=str(data.get("description", item.get("description", "")))[:2000],
         keep=bool(data["keep"]),
     )
@@ -45,6 +57,26 @@ def update(state, data):
 def serve(folder, port, open_browser=False):
     manifest = folder / "match.json"
     lock = threading.Lock()
+    scan_process = None
+    scan_lock = threading.Lock()
+
+    def scan_status():
+        path = folder / "touch-scan" / "status.json"
+        if not path.exists():
+            return {"state": "idle"}
+        result = json.loads(path.read_text())
+        if result.get("state") == "running":
+            # Reap a failed background worker before checking its PID; a zombie
+            # otherwise looks alive and leaves the scan button disabled forever.
+            if scan_process is not None:
+                scan_process.poll()
+            try:
+                os.kill(result["pid"], 0)
+            except ProcessLookupError:
+                result.update(
+                    state="failed", phase="Scan interrupted. Run it again to resume."
+                )
+        return result
 
     def view(state):
         return {
@@ -160,6 +192,8 @@ def serve(folder, port, open_browser=False):
                             self.send_error(500)
                             return
                     return self.file(target, "image/jpeg")
+            if route == "/touch-scan":
+                return self.reply(scan_status())
             if route == "/match":
                 state = json.loads(manifest.read_text())
                 return self.reply(view(state))
@@ -170,6 +204,7 @@ def serve(folder, port, open_browser=False):
             self.send_error(404)
 
         def do_POST(self):
+            nonlocal scan_process
             try:
                 origin = self.headers.get("Origin")
                 host = self.headers.get("Host", "")
@@ -192,11 +227,44 @@ def serve(folder, port, open_browser=False):
                 if not 0 < size <= 256000:
                     raise ValueError("Invalid request size.")
                 data = json.loads(self.rfile.read(size))
-                if self.path in ("/save", "/tag", "/review-appearance", "/undo-review"):
+                if self.path == "/scan-touches":
+                    with scan_lock:
+                        if (
+                            scan_process and scan_process.poll() is None
+                        ) or scan_status().get("state") == "running":
+                            return self.reply(scan_status())
+                        cache = folder / "touch-scan"
+                        cache.mkdir(exist_ok=True)
+                        with (cache / "run.log").open("a") as log:
+                            scan_process = subprocess.Popen(
+                                [
+                                    sys.executable,
+                                    "-u",
+                                    str(Path(__file__).with_name("scan_touches.py")),
+                                    str(folder),
+                                ],
+                                stdout=log,
+                                stderr=subprocess.STDOUT,
+                                start_new_session=True,
+                            )
+                        return self.reply(
+                            {"state": "running", "phase": "Starting scan"}
+                        )
+                if self.path in (
+                    "/save",
+                    "/tag",
+                    "/review-appearance",
+                    "/undo-review",
+                    "/review-touch",
+                ):
                     with lock, (folder / ".edit.lock").open("a") as gate:
                         fcntl.flock(gate, fcntl.LOCK_EX)
                         state = json.loads(manifest.read_text())
-                        if self.path == "/review-appearance":
+                        if self.path == "/review-touch":
+                            from scan_touches import decide as decide_touch
+
+                            key = decide_touch(state, data)
+                        elif self.path == "/review-appearance":
                             from scan_players import decide
 
                             decide(state, data)
