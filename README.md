@@ -10,7 +10,7 @@ Install Python 3.11+, uv, Node.js 22+, and Bun. From the checkout:
 ./scripts/review "/path/to/match.mov"
 ```
 
-With no path, the script opens the newest video in `~/Documents/personal/volleyball`. It installs the locked dependencies, builds the Next.js interface, and starts the Python video server on localhost. The first run for a match creates a seekable preview and proposes clips from motion and sound. Later runs reuse that work.
+With no path, the script opens the newest video in `~/Documents/personal/volleyball`. It installs the locked dependencies and starts the Next.js app at [localhost:8731](http://localhost:8731), with hot reload. A Python service handles video and annotations on port 8732. The first run for a match creates a seekable preview and proposes clips from motion and sound. Later runs reuse that work.
 
 ## Review
 
@@ -43,7 +43,9 @@ The detector checks the model's SHA-256 before use. Match files, video exports, 
 
 ### Development
 
-The frontend is a Next.js static export using shadcn/ui and Tailwind. Run `bun run typecheck` or `bun run build` inside `web/`. The Python server serves the compiled frontend, range requests for video scrubbing, and the annotation and export APIs. Stop the server with Ctrl+C.
+Run `./scripts/review` for development. It starts `next dev` with Fast Refresh and the Python video API together; edits under `web/` appear without rebuilding or restarting. Next.js proxies media and annotation requests to the Python service, so the browser always uses `http://localhost:8731`. Both services bind only to the local computer. Ctrl+C stops them. Restart the script after editing Python code.
+
+The frontend uses shadcn/ui and Tailwind. Run `bun run typecheck` or `bun run build` inside `web/` for validation. To run a production build, start `uv run volleyball.py` in one terminal and `bun run build && bun run start` inside `web/` in another.
 
 ### Play descriptions and player clips
 

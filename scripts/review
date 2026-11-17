@@ -1,10 +1,41 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$root/web"
-bun install --frozen-lockfile
-if [[ ! -f out/index.html ]] || [[ -n "$(find app components lib package.json bun.lock next.config.ts postcss.config.mjs -newer out/index.html -print -quit)" ]]; then
-  bun run build
-fi
 cd "$root"
-exec uv run --locked volleyball.py --open "$@"
+bun install --cwd web --frozen-lockfile
+uv sync --locked
+# Fail before preparing footage if either fixed service port is occupied.
+.venv/bin/python - <<'PYPORT'
+import socket
+for port in (8731, 8732):
+    with socket.socket() as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind(("127.0.0.1", port))
+        except OSError:
+            raise SystemExit(f"Port {port} is in use. Stop the existing film room first.")
+PYPORT
+api_pid=""
+web_pid=""
+cleanup() {
+  [[ -z "$web_pid" ]] || kill "$web_pid" 2>/dev/null || true
+  [[ -z "$api_pid" ]] || kill "$api_pid" 2>/dev/null || true
+  wait 2>/dev/null || true
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+.venv/bin/python -u volleyball.py --port 8732 "$@" &
+api_pid=$!
+# The first import may take time. Wait for media preparation before opening Next.
+until curl -fsS http://localhost:8732/match >/dev/null 2>&1; do
+  if ! kill -0 "$api_pid" 2>/dev/null; then
+    wait "$api_pid"
+    echo "Video API did not start." >&2
+    exit 1
+  fi
+  sleep 1
+done
+bun run --cwd web dev &
+web_pid=$!
+echo "Film room: http://localhost:8731 (Next.js with hot reload)"
+wait "$web_pid"

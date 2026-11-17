@@ -4,7 +4,6 @@ import argparse
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
-import mimetypes
 import fcntl
 from pathlib import Path
 import re
@@ -113,21 +112,10 @@ def serve(folder, port, open_browser=False):
             ):
                 return self.reply({"error": "Local requests only."}, 403)
             route = unquote(self.path.split("?")[0])
-            if route in ("/", "/review", "/review/") or route.startswith("/_next/"):
-                root = Path(__file__).parent.resolve() / "web" / "out"
-                page = {
-                    "/": "index.html",
-                    "/review": "review.html",
-                    "/review/": "review.html",
-                }
-                asset = (root / page.get(route, route[1:])).resolve()
-                if asset.is_relative_to(root) and asset.is_file():
-                    return self.file(
-                        asset,
-                        mimetypes.guess_type(asset.name)[0]
-                        or "application/octet-stream",
-                    )
-                self.send_error(404, "Build the film room with scripts/review.")
+            if route in ("/", "/review", "/review/"):
+                self.send_response(302)
+                self.send_header("Location", "http://localhost:8731" + route)
+                self.end_headers()
                 return
             crop = re.fullmatch(r"/scan-crop/([0-9]{9,}-[0-9]+\.jpg)", route)
             if crop:
@@ -188,7 +176,15 @@ def serve(folder, port, open_browser=False):
                 if host not in (
                     f"localhost:{self.server.server_port}",
                     f"127.0.0.1:{self.server.server_port}",
-                ) or (origin and origin != f"http://{host}"):
+                ) or (
+                    origin
+                    and origin
+                    not in (
+                        f"http://{host}",
+                        "http://localhost:8731",
+                        "http://127.0.0.1:8731",
+                    )
+                ):
                     return self.reply({"error": "Local requests only."}, 403)
                 if self.headers.get_content_type() != "application/json":
                     return self.reply({"error": "Expected JSON."}, 415)
@@ -254,27 +250,14 @@ def serve(folder, port, open_browser=False):
 
         if err.errno != errno.EADDRINUSE:
             raise
-        from urllib.request import urlopen
-
-        url = f"http://127.0.0.1:{port}"
-        try:
-            with urlopen(url + "/match", timeout=2) as response:
-                same = json.load(response).get("match_id") == folder.name
-        except Exception:
-            same = False
-        if not same:
-            return serve(folder, 0, open_browser)
-        print(f"Film room already running at {url}", flush=True)
-        if open_browser:
-            import webbrowser
-
-            webbrowser.open(url)
-        return
-    print(f"Open http://127.0.0.1:{server.server_port} • {folder}", flush=True)
+        raise RuntimeError(
+            f"Port {port} is already in use. Stop the existing film room before starting another match."
+        ) from err
+    print(f"Video API: http://localhost:{server.server_port} • {folder}", flush=True)
     if open_browser:
         import webbrowser
 
-        webbrowser.open(f"http://127.0.0.1:{server.server_port}")
+        webbrowser.open("http://localhost:8731")
     server.serve_forever()
 
 
@@ -289,7 +272,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--library", type=Path, default=Path(__file__).resolve().parent / "matches"
     )
-    parser.add_argument("--port", type=int, default=8731)
+    parser.add_argument("--port", type=int, default=8732)
     args = parser.parse_args()
     if args.movie is None:
         inbox = Path.home() / "Documents" / "personal" / "volleyball"

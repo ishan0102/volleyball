@@ -2,8 +2,10 @@
   "name": "volleyball-film-room",
   "private": true,
   "scripts": {
+    "dev": "next dev --webpack --hostname 127.0.0.1 --port 8731",
     "build": "next build --webpack",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "start": "next start --hostname 127.0.0.1 --port 8731"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
