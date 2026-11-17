@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from media import clip
 
-SKILLS = ["Appearance", "Serve", "Pass", "Set", "Attack", "Block", "Dig"]
+SKILLS = ["Appearance", "Touch", "Serve", "Pass", "Set", "Attack", "Block", "Dig"]
 RESULTS = ["Ungraded", "Positive", "In play", "Error"]
 
 

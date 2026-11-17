@@ -181,19 +181,32 @@ def reel_clips(state, player=""):
         c
         for c in state["clips"]
         if c["keep"]
+        and c.get("detection", {}).get("status") != "dismissed"
         and (
             not player
             or any(
                 t["name"] == player
-                and t.get("skill") in {"Serve", "Pass", "Set", "Attack", "Block", "Dig"}
+                and t.get("skill")
+                in {"Touch", "Serve", "Pass", "Set", "Attack", "Block", "Dig"}
                 for t in c["tags"]
             )
         )
     ]
 
 
+def reel_segments(state, player=""):
+    # Nearby touches in the same rally share footage; export that footage once.
+    segments = []
+    for item in sorted(reel_clips(state, player), key=lambda c: c["start"]):
+        if segments and item["start"] <= segments[-1]["end"]:
+            segments[-1]["end"] = max(segments[-1]["end"], item["end"])
+        else:
+            segments.append(dict(start=item["start"], end=item["end"]))
+    return segments
+
+
 def export(state, player, target):
-    cuts = reel_clips(state, player)
+    cuts = reel_segments(state, player)
     if not cuts:
         raise ValueError("Keep at least one clip for this reel.")
     with tempfile.TemporaryDirectory(dir=target.parent) as tmp:
