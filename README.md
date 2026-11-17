@@ -14,10 +14,12 @@ With no path, the script opens the newest video in `~/Documents/personal/volleyb
 
 ## Review
 
-- Play or scrub to any frame. Click a player's shirt, choose or enter a name, and press **Save tag**. Enter also saves. Repeat on the same frame for another player. If the frame falls outside the clip library, saving creates a clip around it.
-- Choose a clip to review its labels. Set its start or end to the playhead, edit the title, or keep it in the reel. Filter by player to see their clips, labeled touches, and graded outcomes.
-- **Find appearances** compares clothing in two sample frames per candidate. Review each suggestion before saving it as a label. Counts come from the touches you label.
-- Use **Export reel** for the current player or the whole team. Python renders kept clips from the original movie. Keep the source movie and the local `matches/` directory to reopen the edit.
+- Browse clips by player, search by name, touch, or time, and use label-status filters to find untagged footage. Choose a grid or list and sort by match order, newest, or duration. Filters and the open clip are saved in the URL.
+- Open a clip to watch it. Use previous/next, the clip timeline, and **Replay clip** to review a moment. **Full recording** allows playback beyond the clip.
+- Pause and choose **Tag player**, then click the player’s shirt and save their name, touch, and outcome. Existing tags can be edited from the clip details. Unsaved tags survive a refresh.
+- Keep clips with the bookmark button, browse **Reel**, and use **Export reel** to render the selected player’s kept clips or the team reel from the original movie.
+- **Review matches** shows the full frame, the original player reference, and a proposed match. Confirm or change the name, dismiss, skip, or undo the last decision. Keyboard shortcuts are shown beside their actions.
+- The interface follows the [personal design guidelines](https://linear.app/ishan0102/document/personal-design-guidelines-2a1e6acfd1be).
 
 ### Scan the whole match
 

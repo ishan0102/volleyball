@@ -1,85 +1,81 @@
 "use client"
 
 import { useEffect, useState, type RefObject } from "react"
-import { Pause, Play, UserRoundPlus } from "lucide-react"
+import { RotateCcw, UserRoundPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { clock, type Clip, type Draft, type Mark } from "@/lib/film"
-
-type Props = {
-  video: RefObject<HTMLVideoElement | null>
-  clip: Clip
-  duration: number
-  draft: Draft | null
-  busy: boolean
-  onMark: (point: Mark) => void
-}
 
 export function VideoPlayer({
   video,
   clip,
-  duration,
   draft,
   busy,
   onMark,
-}: Props) {
-  const [time, setTime] = useState(0)
-  const [playing, setPlaying] = useState(false)
-  const [clipEnd, setClipEnd] = useState<number | null>(null)
-  const [aspect, setAspect] = useState("16 / 9")
-  useEffect(() => setClipEnd(null), [clip.id])
+  tagging,
+  setTagging,
+  fullMatch,
+  setFullMatch,
+}: {
+  video: RefObject<HTMLVideoElement | null>
+  clip: Clip
+  draft: Draft | null
+  busy: boolean
+  onMark: (point: Mark) => void
+  tagging: boolean
+  setTagging: (value: boolean) => void
+  fullMatch: boolean
+  setFullMatch: (value: boolean) => void
+}) {
+  const [time, setTime] = useState(clip.start)
+  const [error, setError] = useState("")
+  useEffect(() => {
+    if (tagging || draft) video.current?.pause()
+  }, [tagging, draft, video])
   const pins = [
     ...clip.tags,
     ...(draft ? [{ ...draft, name: draft.name || "Player" }] : []),
-  ].filter((p) => Math.abs(p.time - time) < 0.65)
-  function toggle() {
-    const v = video.current
-    if (!v) return
-    if (v.paused) {
-      setClipEnd(null)
-      void v.play().catch(() => {})
-    } else v.pause()
-  }
+  ].filter((p) => Math.abs(p.time - time) < 0.5)
   return (
-    <section aria-label="Match player">
-      <div className="frame" style={{ aspectRatio: aspect }}>
+    <section className="watch-player" aria-label="Match player">
+      <div className="frame">
         <video
           ref={video}
           playsInline
           preload="metadata"
+          controls={!tagging && !draft}
           src="/preview.mp4"
-          onLoadedMetadata={(e) =>
-            setAspect(
-              e.currentTarget.videoWidth + " / " + e.currentTarget.videoHeight,
+          onLoadedMetadata={(e) => {
+            e.currentTarget.currentTime = draft?.time ?? clip.start
+          }}
+          onError={() =>
+            setError(
+              "The video could not load. Refresh and check that the match preview is available.",
             )
           }
-          onPlay={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
           onTimeUpdate={(e) => {
             const t = e.currentTarget.currentTime
             setTime(t)
-            if (clipEnd !== null && t >= clipEnd) {
+            if (!fullMatch && t >= clip.end && !e.currentTarget.paused)
               e.currentTarget.pause()
-              setClipEnd(null)
-            }
           }}
         />
-        <button
-          type="button"
-          className="frame-hit"
-          aria-label="Tag a player on this frame"
-          disabled={busy}
-          onClick={(e) => {
-            const v = video.current
-            if (!v || !v.videoWidth) return
-            v.pause()
-            const r = e.currentTarget.getBoundingClientRect()
-            onMark({
-              time: v.currentTime,
-              x: e.detail ? (e.clientX - r.left) / r.width : 0.5,
-              y: e.detail ? (e.clientY - r.top) / r.height : 0.5,
-            })
-          }}
-        />
+        {(tagging || draft) && (
+          <button
+            className="frame-hit"
+            aria-label="Pin a player on this frame"
+            disabled={busy}
+            onClick={(e) => {
+              const v = video.current
+              if (!v?.videoWidth) return
+              const r = e.currentTarget.getBoundingClientRect()
+              onMark({
+                time: v.currentTime,
+                x: e.detail ? (e.clientX - r.left) / r.width : 0.5,
+                y: e.detail ? (e.clientY - r.top) / r.height : 0.5,
+              })
+            }}
+          />
+        )}
         {pins.map((p, i) => (
           <span
             className="marker"
@@ -90,58 +86,72 @@ export function VideoPlayer({
           </span>
         ))}
       </div>
-      <div className="transport">
-        <Button
-          aria-label={playing ? "Pause" : "Play match"}
-          variant="ghost"
-          size="icon"
-          disabled={busy || !!draft}
-          onClick={toggle}
-        >
-          {playing ? <Pause /> : <Play />}
-        </Button>
-        <span className="time">{clock(time)}</span>
+      {error && <p role="alert">{error}</p>}
+      <div className="clip-transport">
+        <span>{clock(Math.max(0, time - clip.start))}</span>
         <input
           type="range"
-          aria-label="Match timeline"
-          min={0}
-          max={duration}
+          aria-label="Clip position"
+          min={clip.start}
+          max={clip.end}
           step={0.05}
-          value={time}
-          disabled={busy || !!draft}
+          value={Math.min(clip.end, Math.max(clip.start, time))}
+          disabled={busy || !!draft || tagging}
           onChange={(e) => {
             const v = video.current
             if (v) {
               v.pause()
-              setClipEnd(null)
               v.currentTime = Number(e.target.value)
               setTime(v.currentTime)
             }
           }}
         />
-        <span className="time">{clock(duration)}</span>
+        <span>{clock(clip.end - clip.start)}</span>
       </div>
       <div className="video-tools">
-        <span>
-          <UserRoundPlus size={15} />
-          Click a player in the frame to tag them.
-        </span>
+        <div className="buttons">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy || !!draft || tagging}
+            onClick={() => {
+              const v = video.current
+              if (v) {
+                v.currentTime = clip.start
+                void v
+                  .play()
+                  .catch(() => setError("Press play to start the video."))
+              }
+            }}
+          >
+            <RotateCcw />
+            Replay clip
+          </Button>
+          <label className="inline-check">
+            <input
+              type="checkbox"
+              checked={fullMatch}
+              disabled={!!draft || tagging}
+              onChange={(e) => setFullMatch(e.target.checked)}
+            />
+            Full recording
+          </label>
+        </div>
         <Button
+          variant={tagging ? "secondary" : "outline"}
           size="sm"
-          variant="outline"
           disabled={busy || !!draft}
-          onClick={() => {
-            const v = video.current
-            if (v) {
-              v.currentTime = clip.start
-              setClipEnd(clip.end)
-              void v.play().catch(() => {})
-            }
-          }}
+          onClick={() => setTagging(!tagging)}
         >
-          Play clip
+          <UserRoundPlus />
+          {tagging ? "Cancel tagging" : "Tag player"}
         </Button>
       </div>
+      {tagging && (
+        <p className="hint">
+          Click the player’s shirt at {clock(time)} to add a tag.
+        </p>
+      )}
     </section>
   )
 }

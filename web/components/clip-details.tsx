@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Pencil, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { clock, clipName, type Clip, type Tag } from "@/lib/film"
+import { clock, type Clip, type Tag } from "@/lib/film"
 
 type Props = {
   clip: Clip
@@ -43,7 +43,7 @@ export function ClipDetails({
           <small className="time">
             {clock(clip.start)} – {clock(clip.end)}
           </small>
-          <h2>{clipName(clip)}</h2>
+          <h2>Clip details</h2>
         </div>
         <div className="buttons">
           <Button
@@ -113,6 +113,11 @@ export function ClipDetails({
         </div>
       )}
       <div className="tag-list">
+        {!tags.length && (
+          <p className="hint">
+            No player tags yet. Pause the video and choose Tag player.
+          </p>
+        )}
         {tags.map((t, i) => (
           <div key={t.id || i} className="tag-row">
             <button
