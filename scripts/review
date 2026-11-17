@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root/web"
+bun install --frozen-lockfile
+if [[ ! -f out/index.html ]] || [[ -n "$(find app components lib package.json bun.lock next.config.ts postcss.config.mjs -newer out/index.html -print -quit)" ]]; then
+  bun run build
+fi
+cd "$root"
+exec uv run --locked volleyball.py --open "$@"
