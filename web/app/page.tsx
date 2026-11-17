@@ -160,6 +160,7 @@ export default function FilmRoom() {
         )
         if (index < 0)
           throw Error("This tag changed. Cancel and reopen it to edit.")
+        if (tag.source === "automatic") tag.source = "reviewed"
         const tags = c.tags.map((t, i) => (i === index ? tag : t))
         accepted(
           await api<Saved>("/save", { ...c, tags, revision: match.revision }),
@@ -241,6 +242,11 @@ export default function FilmRoom() {
           <strong>Volleyball</strong>
           <span>/</span>Film room
         </div>
+        {match.appearances && (
+          <a className="download" href="/review">
+            Review player matches
+          </a>
+        )}
         <span className="time">{clock(match.duration)} match</span>
       </header>
       <main>

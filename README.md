@@ -19,6 +19,16 @@ With no path, the script opens the newest video in `~/Documents/personal/volleyb
 - **Find appearances** compares clothing in two sample frames per candidate. Review each suggestion before saving it as a label. Counts come from the touches you label.
 - Use **Export reel** for the current player or the whole team. Python renders kept clips from the original movie. Keep the source movie and the local `matches/` directory to reopen the edit.
 
+### Scan the whole match
+
+Pin each roster player in a clear frame, then run the full-match scan from the checkout. Pass the prepared directory inside `matches/`.
+
+```sh
+uv run --with 'openvino==2026.4.1' scan_players.py matches/<match-directory>
+```
+
+The first scan downloads Intel’s Open Model Zoo person-reidentification-retail-0288 weights, verifies their checksums, and caches local crops and embeddings. The scan samples once per second, combines whole-body similarity with shirt and shorts colors, and requires agreement across adjacent samples. It saves at most one representative appearance per player per 45-second window. A clear match adds an ungraded appearance tag. Weaker matches appear under **Review player matches**, where you can compare the two crops, watch the surrounding footage, choose a different player, or dismiss the match. Add another manual pin or confirm a review to give the next scan another reference. Repeated scans preserve decisions and reuse cached detections. Reels still use the clips you mark to keep.
+
 ### Appearance model
 
 For clothing suggestions on a new checkout, install the OpenCV Zoo YOLOX weights:

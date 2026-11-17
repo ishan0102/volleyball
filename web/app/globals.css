@@ -307,3 +307,60 @@ label {
     overflow-wrap: anywhere;
   }
 }
+
+.scan-review {
+  max-width: 730px;
+}
+.review-filters,
+.review-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 0;
+}
+.review-filters {
+  justify-content: space-between;
+}
+.review-actions {
+  border-top: 1px solid #384039;
+  margin-top: 18px;
+  align-items: end;
+}
+.review-actions label {
+  display: grid;
+  gap: 3px;
+}
+.comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+.comparison figure {
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  background: #111512;
+}
+.comparison img {
+  height: clamp(120px, 24vw, 230px);
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto 8px;
+  object-fit: contain;
+}
+.context-video {
+  position: relative;
+  margin-top: 12px;
+}
+.context-video video {
+  width: 100%;
+  display: block;
+}
+.player-box {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid #c8ee8b;
+  box-shadow: 0 0 2px #18250c;
+}

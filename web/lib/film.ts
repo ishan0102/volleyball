@@ -2,6 +2,7 @@ export type Mark = { x: number; y: number; time: number }
 export type Tag = Mark & {
   id?: string
   name: string
+  source?: "automatic" | "reviewed"
   skill: string
   result: string
 }
@@ -14,6 +15,7 @@ export type Clip = {
   note: string
 }
 export type Match = {
+  appearances?: Record<string, Appearance>
   title: string
   match_id: string
   duration: number
@@ -57,4 +59,14 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
   if (!response.ok)
     throw new Error(data.error || "Request failed. Please retry.")
   return data
+}
+
+export type Appearance = {
+  id: string
+  name: string
+  time: number
+  file: string
+  reference: string
+  box: [number, number, number, number]
+  status: "pending" | "automatic" | "reviewed" | "rejected"
 }

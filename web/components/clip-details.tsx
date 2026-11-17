@@ -124,6 +124,7 @@ export function ClipDetails({
               <strong>{t.name}</strong>
               <span>
                 {t.skill}
+                {t.source === "automatic" && " · auto"}
                 {t.result !== "Ungraded" && " · " + t.result}
               </span>
             </button>

@@ -31,6 +31,8 @@ def validated_tag(tag, start, end):
         x=numeric(tag["x"], 0, 1),
         y=numeric(tag["y"], 0, 1),
     )
+    if tag.get("source") in ("automatic", "reviewed"):
+        label["source"] = tag["source"]
     if "id" in tag:
         if not re.fullmatch(r"[0-9a-f-]{32,36}", tag["id"]):
             raise ValueError("Invalid tag identifier.")

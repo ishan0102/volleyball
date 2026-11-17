@@ -112,9 +112,14 @@ def serve(folder, port, open_browser=False):
             ):
                 return self.reply({"error": "Local requests only."}, 403)
             route = unquote(self.path.split("?")[0])
-            if route == "/" or route.startswith("/_next/"):
+            if route in ("/", "/review", "/review/") or route.startswith("/_next/"):
                 root = Path(__file__).parent.resolve() / "web" / "out"
-                asset = (root / ("index.html" if route == "/" else route[1:])).resolve()
+                page = {
+                    "/": "index.html",
+                    "/review": "review.html",
+                    "/review/": "review.html",
+                }
+                asset = (root / page.get(route, route[1:])).resolve()
                 if asset.is_relative_to(root) and asset.is_file():
                     return self.file(
                         asset,
@@ -123,6 +128,12 @@ def serve(folder, port, open_browser=False):
                     )
                 self.send_error(404, "Build the film room with scripts/review.")
                 return
+            crop = re.fullmatch(r"/scan-crop/([0-9]{9,}-[0-9]+\.jpg)", route)
+            if crop:
+                path = folder / "appearance-scan" / "crops" / crop[1]
+                if path.is_file():
+                    return self.file(path, "image/jpeg")
+                return self.send_error(404)
             if route == "/preview.mp4":
                 return self.file(folder / "preview.mp4", "video/mp4")
             thumb = re.fullmatch(r"/thumb/([a-zA-Z0-9_-]+)\.jpg", route)
@@ -184,15 +195,19 @@ def serve(folder, port, open_browser=False):
                 if not 0 < size <= 256000:
                     raise ValueError("Invalid request size.")
                 data = json.loads(self.rfile.read(size))
-                if self.path in ("/save", "/tag"):
+                if self.path in ("/save", "/tag", "/review-appearance"):
                     with lock, (folder / ".edit.lock").open("a") as gate:
                         fcntl.flock(gate, fcntl.LOCK_EX)
                         state = json.loads(manifest.read_text())
-                        key = (
-                            save_tag(state, data)
-                            if self.path == "/tag"
-                            else update(state, data)
-                        )
+                        if self.path == "/review-appearance":
+                            from scan_players import decide
+
+                            decide(state, data)
+                            key = data["id"]
+                        elif self.path == "/tag":
+                            key = save_tag(state, data)
+                        else:
+                            key = update(state, data)
                         save(manifest, state)
                     return self.reply({"id": key, "match": view(state)})
                 if self.path == "/suggest":
