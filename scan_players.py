@@ -298,8 +298,33 @@ def decide(state, data):
         name = data["name"].strip()
         if name not in {t["name"] for c in state["clips"] for t in c["tags"]}:
             raise ValueError("Choose a roster player")
-        add_appearance(state, event, name, "reviewed")
+        existing_clips = {c["id"] for c in state["clips"]}
+        clip_id = add_appearance(state, event, name, "reviewed")
+        if clip_id not in existing_clips:
+            event["createdClipId"] = clip_id
         event.update(status="reviewed", reviewedName=name)
+    state["revision"] += 1
+
+
+def undo_review(state, data):
+    event = state["appearances"][data["id"]]
+    if event["status"] == "pending":
+        return
+    if data["revision"] != state["revision"]:
+        raise ValueError("The match changed. Refresh before undoing.")
+    if event["status"] not in ("reviewed", "rejected"):
+        raise ValueError("Only a review decision can be undone.")
+    if event["status"] == "reviewed":
+        for item in state["clips"]:
+            item["tags"] = [t for t in item["tags"] if t.get("id") != event["id"]]
+    created_clip = event.pop("createdClipId", None)
+    state["clips"] = [
+        c
+        for c in state["clips"]
+        if c["id"] != created_clip or c["tags"] or c["keep"] or c["note"]
+    ]
+    event["status"] = "pending"
+    event.pop("reviewedName", None)
     state["revision"] += 1
 
 

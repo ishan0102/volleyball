@@ -144,7 +144,7 @@ def serve(folder, port, open_browser=False):
                     cache = folder / "thumbs"
                     cache.mkdir(exist_ok=True)
                     midpoint = (item["start"] + item["end"]) / 2
-                    target = cache / f"{item['id']}-{midpoint:.2f}.jpg"
+                    target = cache / f"{item['id']}-{midpoint:.2f}-480.jpg"
                     if not target.exists():
                         try:
                             image = ff(
@@ -156,7 +156,7 @@ def serve(folder, port, open_browser=False):
                                     "-frames:v",
                                     "1",
                                     "-vf",
-                                    "scale=200:-2",
+                                    "scale=480:-2",
                                     "-f",
                                     "image2pipe",
                                     "-c:v",
@@ -195,7 +195,7 @@ def serve(folder, port, open_browser=False):
                 if not 0 < size <= 256000:
                     raise ValueError("Invalid request size.")
                 data = json.loads(self.rfile.read(size))
-                if self.path in ("/save", "/tag", "/review-appearance"):
+                if self.path in ("/save", "/tag", "/review-appearance", "/undo-review"):
                     with lock, (folder / ".edit.lock").open("a") as gate:
                         fcntl.flock(gate, fcntl.LOCK_EX)
                         state = json.loads(manifest.read_text())
@@ -203,6 +203,11 @@ def serve(folder, port, open_browser=False):
                             from scan_players import decide
 
                             decide(state, data)
+                            key = data["id"]
+                        elif self.path == "/undo-review":
+                            from scan_players import undo_review
+
+                            undo_review(state, data)
                             key = data["id"]
                         elif self.path == "/tag":
                             key = save_tag(state, data)
