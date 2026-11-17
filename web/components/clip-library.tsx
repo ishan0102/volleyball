@@ -16,6 +16,7 @@ export function ClipLibrary({
   keep,
   busy,
   reset,
+  player,
 }: {
   clips: Clip[]
   layout: "grid" | "list"
@@ -23,13 +24,18 @@ export function ClipLibrary({
   keep: (clip: Clip) => void
   busy: boolean
   reset: () => void
+  player?: string
 }) {
   if (!clips.length)
     return (
       <div className="empty-state">
         <SearchX size={28} />
-        <h2>No clips match</h2>
-        <p>Try another player, label status, or search.</p>
+        <h2>{player ? "No matching touch clips" : "No clips match"}</h2>
+        <p>
+          {player
+            ? "Only labeled ball contacts appear here. Review the footage in All clips to add a touch, or clear your filters."
+            : "Try another player, label status, or search."}
+        </p>
         <Button variant="outline" onClick={reset}>
           Clear filters
         </Button>
@@ -62,6 +68,9 @@ export function ClipLibrary({
                 {clock(c.start)} – {clock(c.end)}
               </div>
               <h2>{clipName(c)}</h2>
+              {c.description && (
+                <p className="clip-description">{c.description}</p>
+              )}
               <div
                 className={"label-state " + (!c.tags.length ? "untagged" : "")}
               >

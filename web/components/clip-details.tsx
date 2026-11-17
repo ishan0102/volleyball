@@ -68,6 +68,14 @@ export function ClipDetails({
           </Button>
         </div>
       </div>
+      {!details &&
+        (clip.description ? (
+          <p className="play-description">{clip.description}</p>
+        ) : (
+          <p className="hint">
+            No play description yet. Edit clip details to add what happened.
+          </p>
+        ))}
       {details && (
         <div className="clip-edit">
           <label>
@@ -76,6 +84,19 @@ export function ClipDetails({
               value={details.note}
               maxLength={300}
               onChange={(e) => setDetails({ ...details, note: e.target.value })}
+            />
+          </label>
+          <label>
+            What happened
+            <textarea
+              className="description-input"
+              value={details.description ?? ""}
+              rows={5}
+              maxLength={2000}
+              placeholder="Describe the touch, what followed, and the outcome if visible."
+              onChange={(e) =>
+                setDetails({ ...details, description: e.target.value })
+              }
             />
           </label>
           <div className="buttons">

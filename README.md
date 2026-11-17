@@ -44,3 +44,9 @@ The detector checks the model's SHA-256 before use. Match files, video exports, 
 ### Development
 
 The frontend is a Next.js static export using shadcn/ui and Tailwind. Run `bun run typecheck` or `bun run build` inside `web/`. The Python server serves the compiled frontend, range requests for video scrubbing, and the annotation and export APIs. Stop the server with Ctrl+C.
+
+### Play descriptions and player clips
+
+Player filters, sidebar counts, and player reel exports include only clips with a labeled Serve, Pass, Set, Attack, Block, or Dig by that player. Appearance matches help identify people during review and do not qualify a clip for their reel. All clips remains the full library.
+
+Clips have a short title (`note`) and an optional `description`. Summaries appear on cards, in the viewer, and in search. Edit clip details to describe what happened; keep uncertain outcomes explicit. Selecting a touch is required for new tags, with a separate Appearance only option for identity labels.

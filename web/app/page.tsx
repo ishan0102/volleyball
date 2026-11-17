@@ -24,6 +24,7 @@ import {
   api,
   clock,
   clipName,
+  hasTouch,
   type Clip,
   type Draft,
   type Mark,
@@ -183,8 +184,7 @@ export default function FilmRoom() {
 
   const scoped =
     match?.clips.filter(
-      (c) =>
-        (!player || c.tags.some((t) => t.name === player)) && (!reel || c.keep),
+      (c) => (!player || hasTouch(c, player)) && (!reel || c.keep),
     ) ?? []
   const filtered = scoped
     .filter((c) => {
@@ -203,6 +203,7 @@ export default function FilmRoom() {
                 : true
       const text = [
         c.note,
+        c.description,
         clock(c.start),
         ...c.tags.flatMap((t) => [t.name, t.skill, t.result]),
       ]
@@ -219,9 +220,7 @@ export default function FilmRoom() {
     )
   const index = filtered.findIndex((c) => c.id === id)
   const kept =
-    match?.clips.filter(
-      (c) => c.keep && (!player || c.tags.some((t) => t.name === player)),
-    ) ?? []
+    match?.clips.filter((c) => c.keep && (!player || hasTouch(c, player))) ?? []
 
   function remember(value: Pending | null) {
     setDraft(value)
@@ -279,7 +278,7 @@ export default function FilmRoom() {
       id: crypto.randomUUID(),
       clipId: target?.id ?? null,
       name: player,
-      skill: "Appearance",
+      skill: "",
       result: "Ungraded",
     })
     setTagging(false)
@@ -400,7 +399,7 @@ export default function FilmRoom() {
             <p className="subtitle">
               {match
                 ? scoped.length +
-                  " clips · " +
+                  (player ? " touch clips · " : " clips · ") +
                   clock(Math.round(match.duration)) +
                   " recording"
                 : "Loading your clips…"}
@@ -427,6 +426,15 @@ export default function FilmRoom() {
             )}
           </div>
         </div>
+        {player && (
+          <p className="scope-note">
+            Clips with a labeled touch by {player}. Appearance matches stay in{" "}
+            <a href={"/review?player=" + encodeURIComponent(player)}>
+              player review
+            </a>
+            .
+          </p>
+        )}
         <div className="library-toolbar">
           <label className="search-field">
             <Search size={17} />
@@ -504,6 +512,7 @@ export default function FilmRoom() {
         {match && (
           <ClipLibrary
             clips={filtered.slice(0, limit)}
+            player={player}
             layout={layout}
             choose={choose}
             busy={busy}

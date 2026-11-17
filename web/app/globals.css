@@ -418,10 +418,12 @@ p {
   font-weight: 550;
   letter-spacing: -0.015em;
   line-height: 1.5;
-  white-space: nowrap;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  padding-right: 14px;
+  padding-right: 4px;
 }
 .label-state {
   display: flex;
@@ -1101,4 +1103,47 @@ kbd {
   .review-panel .save-review {
     height: 44px;
   }
+}
+
+/* Play summaries remain readable in both browsing and detail views. */
+.clip-description {
+  color: #69675f;
+  font-size: 13px;
+  line-height: 1.55;
+  margin-top: 6px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.play-description {
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 16px 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.description-input {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.scope-note {
+  margin: -8px 0 20px;
+  color: #69675f;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.scope-note a {
+  color: #4f46e5;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }

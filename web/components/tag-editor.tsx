@@ -27,7 +27,7 @@ export function TagEditor({
       className="editor"
       onSubmit={(e) => {
         e.preventDefault()
-        if (!busy && draft.name.trim()) save()
+        if (!busy && draft.name.trim() && draft.skill) save()
       }}
     >
       <div className="section-title">
@@ -52,8 +52,13 @@ export function TagEditor({
               value={draft.skill}
               onChange={(e) => change({ ...draft, skill: e.target.value })}
             >
+              <option value="" disabled>
+                Choose a touch…
+              </option>
               {match.skills.map((s) => (
-                <option key={s}>{s}</option>
+                <option key={s} value={s}>
+                  {s === "Appearance" ? "Appearance only (no touch)" : s}
+                </option>
               ))}
             </NativeSelect>
           </label>
@@ -64,7 +69,9 @@ export function TagEditor({
               onChange={(e) => change({ ...draft, result: e.target.value })}
             >
               {match.results.map((s) => (
-                <option key={s}>{s}</option>
+                <option key={s} value={s}>
+                  {s === "Appearance" ? "Appearance only (no touch)" : s}
+                </option>
               ))}
             </NativeSelect>
           </label>
@@ -87,7 +94,10 @@ export function TagEditor({
             <Button variant="ghost" type="button" onClick={cancel}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!draft.name.trim() || busy}>
+            <Button
+              type="submit"
+              disabled={!draft.name.trim() || !draft.skill || busy}
+            >
               {busy ? "Saving…" : "Save tag"}
             </Button>
           </div>

@@ -321,7 +321,11 @@ def undo_review(state, data):
     state["clips"] = [
         c
         for c in state["clips"]
-        if c["id"] != created_clip or c["tags"] or c["keep"] or c["note"]
+        if c["id"] != created_clip
+        or c["tags"]
+        or c["keep"]
+        or c["note"]
+        or c.get("description")
     ]
     event["status"] = "pending"
     event.pop("reviewedName", None)

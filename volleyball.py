@@ -36,6 +36,7 @@ def update(state, data):
         end=end,
         tags=tags,
         note=str(data["note"])[:300],
+        description=str(data.get("description", item.get("description", "")))[:2000],
         keep=bool(data["keep"]),
     )
     state["revision"] += 1

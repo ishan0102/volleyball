@@ -2,7 +2,7 @@
 
 import { Film, Grid2X2, ListChecks, Bookmark, ArrowUpRight } from "lucide-react"
 import type { ReactNode } from "react"
-import type { Match } from "@/lib/film"
+import { hasTouch, type Match } from "@/lib/film"
 
 export function FilmShell({
   match,
@@ -74,13 +74,11 @@ export function FilmShell({
             {pending > 0 && <span className="nav-count">{pending}</span>}
           </a>
         </nav>
-        <div className="roster-heading">Players</div>
+        <div className="roster-heading">Player touches</div>
         <nav aria-label="Players" className="player-nav">
           {names.map((name) => {
             const photo = portraits.find((e) => e.name === name)?.reference
-            const count = match?.clips.filter((c) =>
-              c.tags.some((t) => t.name === name),
-            ).length
+            const count = match?.clips.filter((c) => hasTouch(c, name)).length
             const contents = (
               <>
                 <span className="avatar">
@@ -91,7 +89,7 @@ export function FilmShell({
                   )}
                 </span>
                 <span>{name}</span>
-                <small>{count}</small>
+                <small aria-label={count + " touch clips"}>{count}</small>
               </>
             )
             return choose ? (

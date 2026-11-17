@@ -13,6 +13,7 @@ export type Clip = {
   keep: boolean
   tags: Tag[]
   note: string
+  description?: string
 }
 export type Match = {
   appearances?: Record<string, Appearance>
@@ -32,6 +33,14 @@ export function clock(seconds: number) {
     Math.floor(seconds / 60) +
     ":" +
     String(Math.floor(seconds % 60)).padStart(2, "0")
+  )
+}
+
+export const touchSkills = ["Serve", "Pass", "Set", "Attack", "Block", "Dig"]
+
+export function hasTouch(clip: Clip, player?: string) {
+  return clip.tags.some(
+    (t) => (!player || t.name === player) && touchSkills.includes(t.skill),
   )
 }
 

@@ -176,12 +176,24 @@ def clip(start, end, score=0):
     )
 
 
-def export(state, player, target):
-    cuts = [
+def reel_clips(state, player=""):
+    return [
         c
         for c in state["clips"]
-        if c["keep"] and (not player or any(t["name"] == player for t in c["tags"]))
+        if c["keep"]
+        and (
+            not player
+            or any(
+                t["name"] == player
+                and t.get("skill") in {"Serve", "Pass", "Set", "Attack", "Block", "Dig"}
+                for t in c["tags"]
+            )
+        )
     ]
+
+
+def export(state, player, target):
+    cuts = reel_clips(state, player)
     if not cuts:
         raise ValueError("Keep at least one clip for this reel.")
     with tempfile.TemporaryDirectory(dir=target.parent) as tmp:
