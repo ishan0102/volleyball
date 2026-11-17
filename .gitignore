@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+.ruff_cache/
+.DS_Store
+matches/
+*.mp4
+*.mov
+*.MOV
+*.m4v
+models/*.onnx
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.env*
