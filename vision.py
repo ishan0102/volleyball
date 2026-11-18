@@ -20,11 +20,16 @@ def save(path, value):
     Path(f.name).replace(path)
 
 
-def frames(video, start, end, fps=2):
+def frames(video, start, end, fps=2, offset=0, crop=None):
     """Use consecutive frames with visible recording timestamps, not a collage."""
     with tempfile.TemporaryDirectory() as tmp:
         # ffmpeg's pts offset labels the original recording time after seeking.
-        filters = f"fps={fps},scale=960:-2,drawtext=text='%{{pts\\:flt\\:{start}}}s':x=8:y=8:fontsize=24:fontcolor=white:box=1:boxcolor=black"
+        filters = f"fps={fps},scale=960:-2,drawtext=text='%{{pts\\:flt\\:{start + offset}}}s':x=8:y=8:fontsize=24:fontcolor=white:box=1:boxcolor=black"
+        if crop:
+            x, y, w, h = crop
+            filters = f"crop=iw*{w}:ih*{h}:iw*{x}:ih*{y}," + filters.replace(
+                "scale=960:-2", "scale=640:640:force_original_aspect_ratio=decrease"
+            )
         subprocess.run(
             [
                 os.getenv("FFMPEG", "ffmpeg"),

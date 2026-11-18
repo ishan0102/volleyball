@@ -57,7 +57,16 @@ def connection(host):
                 )
                 command([str(app), "switch", wanted])
                 time.sleep(3)
-        ssh(host, "true", timeout=15)
+        for attempt in range(3):
+            try:
+                ssh(host, "true", timeout=15)
+                break
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                if attempt == 2:
+                    raise ConnectionError(
+                        "Cannot reach devbox. Retry when it is online."
+                    ) from None
+                time.sleep(3)
         yield
     finally:
         if original:
@@ -76,10 +85,14 @@ def roster(folder, state):
         path = folder / "appearance-scan" / "detections" / f"{ms:09}.json"
         frames[ms] = json.loads(path.read_text()) if path.exists() else []
     refs = reference_crops(frames, tags)
+    neutral = reference_crops(
+        frames, [t for t in tags if t.get("skill") == "Appearance"]
+    )
     target = folder / "analysis" / "roster"
     target.mkdir(parents=True, exist_ok=True)
     images = []
     for name, rows in sorted(refs.items()):
+        rows = neutral.get(name) or rows
         picks = []
         for r in sorted(rows, key=lambda r: r["box"][2] * r["box"][3], reverse=True):
             if all(
@@ -261,16 +274,117 @@ def run(folder, action, host="devbox", model=MODEL, windows=None):
             print((cache / "status.json").read_text())
 
 
+def run_contacts(folder, action, host="devbox", model=MODEL):
+    from contact_review import prepare, publish
+
+    folder = folder.resolve()
+    if not re.fullmatch(r"[a-zA-Z0-9_-]+", folder.name) or not re.fullmatch(
+        r"[a-zA-Z0-9_][a-zA-Z0-9_.@-]*", host
+    ):
+        raise ValueError("Invalid match or SSH host")
+    cache = folder / "analysis"
+    cache.mkdir(exist_ok=True)
+    remote_match = f"{REMOTE}/matches/{folder.name}"
+    with (cache / ".transfer.lock").open("a") as gate:
+        fcntl.flock(gate, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        save(
+            cache / "transfer.json",
+            dict(
+                state="running",
+                phase="Preparing contact clips"
+                if action == "contacts"
+                else "Fetching GPU checks",
+            ),
+        )
+        if action == "contacts":
+            source = prepare(folder)
+            with connection(host):
+                ssh(host, f"mkdir -p {remote_match}/verification/input", timeout=20)
+                command(
+                    [
+                        "scp",
+                        str(ROOT / "vision.py"),
+                        str(ROOT / "contact_review.py"),
+                        f"{host}:{REMOTE}/",
+                    ],
+                    timeout=60,
+                )
+                command(
+                    [
+                        "rsync",
+                        "-a",
+                        "--partial",
+                        str(source) + "/",
+                        f"{host}:{remote_match}/verification/input/",
+                    ],
+                    timeout=1800,
+                )
+                worker = f"python3 -u {REMOTE}/contact_review.py scan {remote_match} --model {shlex.quote(model)}"
+                ssh(
+                    host,
+                    f"nohup {worker} >> {remote_match}/verification/run.log 2>&1 < /dev/null &",
+                    timeout=20,
+                )
+            save(
+                cache / "status.json",
+                dict(
+                    state="running",
+                    phase="Checking contacts on devbox",
+                    unit="clips",
+                    completed=0,
+                    total=len(
+                        json.loads((source / "manifest.json").read_text())["rows"]
+                    ),
+                ),
+            )
+        else:
+            local = folder / "verification" / "remote"
+            local.mkdir(parents=True, exist_ok=True)
+            with connection(host):
+                command(
+                    [
+                        "rsync",
+                        "-a",
+                        "--include=/status.json",
+                        "--include=/results.json",
+                        "--include=/calibration.json",
+                        "--exclude=*",
+                        f"{host}:{remote_match}/verification/",
+                        str(local) + "/",
+                    ],
+                    timeout=120,
+                )
+            status = local / "status.json"
+            if not status.exists():
+                raise ValueError("No GPU check status yet. Start verification first.")
+            current = json.loads(status.read_text())
+            results = local / "results.json"
+            if (
+                current.get("state") != "failed"
+                and results.exists()
+                and current.get("runId") == json.loads(results.read_text()).get("runId")
+            ):
+                print(f"Updated {publish(folder, results)} candidate reviews")
+            save(cache / "status.json", current)
+        save(cache / "transfer.json", dict(state="complete", phase="Transfer complete"))
+        print((cache / "status.json").read_text())
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["start", "sync", "publish"])
+    parser.add_argument(
+        "action", choices=["start", "sync", "publish", "contacts", "sync-contacts"]
+    )
     parser.add_argument("folder", type=Path)
     parser.add_argument("--host", default="devbox")
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--windows", nargs="+", type=int)
     args = parser.parse_args()
     try:
-        run(args.folder, args.action, args.host, args.model, args.windows)
+        if args.action in ("contacts", "sync-contacts"):
+            run_contacts(args.folder, args.action, args.host, args.model)
+        else:
+            run(args.folder, args.action, args.host, args.model, args.windows)
     except Exception as error:
         cache = args.folder.resolve() / "analysis"
         cache.mkdir(exist_ok=True)

@@ -42,7 +42,7 @@ The experimental GPU pipeline runs privately on your devbox through its existing
 ./scripts/analyze-devbox sync matches/<match-directory>
 ```
 
-**Analyze on devbox** and **Sync analysis** provide the same workflow in the app. Thirty-second windows include overlapping context. Each window is cached by its frames, prompt, schema and model digest. Interrupted runs can resume. `--windows 7 19 61` runs a small calibration sample before a full recording. Start/sync logs and structured results live in the match's ignored `analysis/` directory.
+The CLI provides the rally-analysis workflow. Thirty-second windows include overlapping context. Each window is cached by its frames, prompt, schema and model digest. Interrupted runs can resume. `--windows 7 19 61` runs a small calibration sample before a full recording. Start/sync logs and structured results live in the match's ignored `analysis/` directory.
 
 Sync fetches **drafts** without changing your clips. Inspect results against the original footage, especially player identity, serve strikes versus tosses, and rally endings. The initial Gemma and Qwen thinking-model trials did not meet this standard. See `tests/fixtures/video-audit.json` for the visual benchmark. A successful API response is not proof that a label is correct.
 
@@ -56,11 +56,20 @@ Publishing preserves manual prose, player tags, keep/dismiss decisions and edits
 
 ### Player touches and coaching
 
-The old detector produced too many false positives on this camera angle. Its automatic candidates are now **unverified** and excluded from player counts and reels. They remain available in All clips for correction. Confirm an actual touch only after watching it; dismiss removes the candidate, and Undo restores the previous decision. Existing manual touches remain available.
+Automatic touch candidates appear on player pages and in kept reels by default. They are labeled **Unverified touch** until checked. Explicit dismissals stay hidden; Undo restores them. Appearance-only tags still do not count as player clips.
+
+**Verify touches** packages short, 15-fps excerpts from the original preview and sends them to your private devbox. The model examines an 8-fps sequence cropped around the candidate, full-court context, and your labeled player reference, beginning with known positive and negative examples. If calibration fails, no candidate judgments are published. Successful checks run for all candidates, with Ishan first. **Sync checks** imports partial results without changing your player tags, keep decisions, confirmations or dismissals. GPU judgments appear as likely, uncertain or unlikely; all candidates remain visible for you to correct.
+
+```sh
+./scripts/analyze-devbox contacts matches/<match-directory>
+./scripts/analyze-devbox sync-contacts matches/<match-directory>
+```
+
+The November 14 recording includes four visually reviewed calibration examples. For another recording, add equivalent `contactBenchmark` examples (contact and no-contact) to its match data before running verification. Calibration checks both contact attribution and action type. The current Qwen model has failed wrong-player and pass-versus-serve checks; full-match GPU verification remains experimental. The check is cached per model, prompt and frames. Unknown identities remain uncertain. Model judgments are not verified match statistics. Results and progress live under the match’s ignored `verification/` directory.
 
 The experimental contact scan can still be run with `uv run --locked scan_touches.py matches/<match-directory>`. It uses the MIT-licensed [RAVEL models](https://github.com/asigatchov/fast-volleyball-tracking-inference/tree/c3864156a4dfbd5af3f00f427ab0fc4bfe7af5b5), ball tracking and clothing references. Ball proximity alone does not prove contact, and identity similarity is not a calibrated probability. Model weights and minute results are cached locally. This scan is a candidate generator, not a source of verified statistics.
 
-**Your next practice** on a player page contains evidence-linked feedback. Each note includes an observation, a concrete practice cue, an optional drill and clickable supporting clips. A single example is labeled as such. The current notes were visually reviewed; automatic coaching across the whole match is still unfinished.
+**Next practice** on a player page contains evidence-linked feedback. Each note includes an observation, a concrete practice cue, an optional drill and clickable supporting clips. Feedback stays specific to the observed play. The current notes were visually reviewed; automatic coaching across the whole match is still unfinished.
 
 The coaching goal is to identify repeatable strengths and improvement opportunities from actual play: serve recovery, ready position, footwork, passing platform, approach and net timing, and decisions where the camera provides enough context. Feedback must explain what was visible and what to try next. Match-wide patterns need multiple examples; outcomes hidden by the camera, unsupported touch counts and invented performance grades are excluded.
 

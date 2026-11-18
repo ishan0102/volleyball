@@ -6,8 +6,8 @@ import {
   clock,
   isRally,
   rallyDuration,
-  touchSupported,
   clipDescription,
+  contactLabel,
   type Clip,
   type Tag,
 } from "@/lib/film"
@@ -59,11 +59,13 @@ export function ClipDetails({
           <Button
             variant={clip.keep ? "secondary" : "outline"}
             size="sm"
-            disabled={busy || !!details || !touchSupported(clip)}
+            disabled={
+              busy || !!details || clip.detection?.status === "dismissed"
+            }
             onClick={() => save({ ...clip, keep: !clip.keep })}
           >
-            {!touchSupported(clip)
-              ? "Excluded from reel"
+            {clip.detection?.status === "dismissed"
+              ? "Dismissed"
               : clip.keep
                 ? "Kept in reel"
                 : "Keep in reel"}
@@ -84,16 +86,10 @@ export function ClipDetails({
       </div>
       {clip.detection && (
         <div className="touch-review-panel">
-          <strong>
-            {clip.detection.status === "dismissed"
-              ? "Dismissed touch"
-              : clip.detection.status === "confirmed"
-                ? "Touch confirmed"
-                : clip.detection.validation === "supported"
-                  ? "AI touch candidate"
-                  : "Unverified detection · excluded"}
-          </strong>
-          <p>Confirm only visible ball contact by the tagged player.</p>
+          <strong>{contactLabel(clip)}</strong>
+          {clip.detection.review?.evidence && (
+            <p>{clip.detection.review.evidence}</p>
+          )}
           <div className="buttons">
             <Button
               size="sm"

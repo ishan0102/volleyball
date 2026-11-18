@@ -7,3 +7,7 @@ This is Ishan’s solo personal project. Work directly on `main` and make clean 
 Keep UI copy concise. Remove text that explains obvious controls or announces what the interface does. Prefer one useful summary; put supporting detail in the viewer or behind a disclosure.
 
 Coach Ishan like a demanding youth or college coach: identify the visible mistake, give a direct correction, and prescribe a concrete drill. Keep useful strengths specific. Avoid generic encouragement, repeated caveats, and inflated claims. Anchor criticism to the observed play; do not turn one clip into a recurring habit or invent mechanics the camera cannot show.
+
+## Candidate clips
+
+Keep automatic touch candidates visible on player pages and available in reels while GPU verification runs. Label uncertainty; do not hide the library down to manually reviewed clips. Preserve explicit user dismissals and corrections. GPU checks are model judgments, not human confirmations.

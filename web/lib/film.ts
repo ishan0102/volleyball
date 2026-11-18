@@ -7,6 +7,14 @@ export type Tag = Mark & {
   result: string
 }
 export type Detection = {
+  review?: {
+    verdict: "supported" | "rejected" | "unverified"
+    evidence: string
+    title: string
+    model: string
+    time: number | null
+    skill: string
+  }
   validation?: "supported" | "unverified" | "rejected"
   time: number
   score: number
@@ -17,6 +25,8 @@ export type Detection = {
   box: number[]
 }
 export type ScanStatus = {
+  unit?: string
+  updated?: number
   state: "idle" | "running" | "complete" | "needs_review" | "failed"
   phase?: string
   completed?: number
@@ -110,7 +120,6 @@ export function hasTouch(
   includeDismissed = false,
 ) {
   if (!includeDismissed && clip.detection?.status === "dismissed") return false
-  if (!includeDismissed && !touchSupported(clip)) return false
   return clip.tags.some(
     (t) => (!player || t.name === player) && touchSkills.includes(t.skill),
   )
@@ -144,7 +153,7 @@ export function clipName(clip: Clip) {
     !touchSupported(clip) &&
     clip.note.endsWith(" · detected touch")
   )
-    return "Unverified detection · " + clip.tags.map((t) => t.name).join(", ")
+    return "Possible touch · " + clip.tags.map((t) => t.name).join(", ")
   return (
     clip.note ||
     (clip.tags.length
@@ -159,7 +168,7 @@ export function clipDescription(clip: Clip) {
     !touchSupported(clip) &&
     clip.description?.startsWith("Ball contact detected at ")
   )
-    return "Unverified candidate. Watch the footage to check for an actual ball contact."
+    return undefined
   return clip.description
 }
 
@@ -188,4 +197,19 @@ export type Appearance = {
   reference: string
   box: [number, number, number, number]
   status: "pending" | "automatic" | "reviewed" | "rejected"
+}
+
+export function contactLabel(clip: Clip) {
+  if (clip.detection?.status === "dismissed") return "Dismissed"
+  if (clip.detection?.status === "confirmed") return "Touch confirmed"
+  switch (clip.detection?.review?.verdict) {
+    case "supported":
+      return "GPU · likely touch"
+    case "rejected":
+      return "GPU · unlikely touch"
+    case "unverified":
+      return "GPU · uncertain"
+    default:
+      return "Unverified touch"
+  }
 }

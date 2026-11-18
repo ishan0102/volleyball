@@ -18,10 +18,10 @@ class TouchDetectionTest(unittest.TestCase):
             uncertain=False,
         )
 
-    def test_unverified_candidates_require_confirmation_and_keep_review_decisions(self):
+    def test_candidates_are_visible_and_preserve_review_decisions(self):
         self.assertEqual(apply_events(self.state, [self.event], "match"), 1)
         c = self.state["clips"][0]
-        self.assertEqual(reel_clips(self.state, "A"), [])
+        self.assertEqual(reel_clips(self.state, "A"), [c])
         decide(self.state, dict(id=c["id"], revision=2, status="confirmed"))
         self.assertEqual(reel_clips(self.state, "A"), [c])
         decide(self.state, dict(id=c["id"], revision=3, status="dismissed"))
@@ -31,7 +31,7 @@ class TouchDetectionTest(unittest.TestCase):
             apply_events(self.state, [dict(self.event, time=20.2)], "match"), 0
         )
         decide(self.state, dict(id=c["id"], revision=4, status="automatic"))
-        self.assertEqual(reel_clips(self.state, "A"), [])
+        self.assertEqual(reel_clips(self.state, "A"), [c])
 
     def test_manual_contact_not_duplicated_or_overwritten(self):
         self.state["clips"] = [

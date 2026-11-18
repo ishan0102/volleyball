@@ -177,13 +177,11 @@ def clip(start, end, score=0):
 
 
 def reel_clips(state, player=""):
-    from rallies import touch_supported
-
     return [
         c
         for c in state["clips"]
         if c["keep"]
-        and touch_supported(c)
+        and c.get("detection", {}).get("status") != "dismissed"
         and (
             not player
             or any(

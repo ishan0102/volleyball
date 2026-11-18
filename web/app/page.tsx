@@ -77,6 +77,7 @@ export default function FilmRoom() {
     status: Detection["status"]
   } | null>(null)
   const scanWasRunning = useRef(false)
+  const scanProgress = useRef("")
   const video = useRef<HTMLVideoElement>(null)
   const dialog = useRef<HTMLDialogElement>(null)
   const lock = useRef(false)
@@ -235,13 +236,18 @@ export default function FilmRoom() {
         const next = await api<ScanStatus>("/analysis-status")
         if (!alive) return
         setScan(next)
-        if (scanWasRunning.current && next.state === "complete") {
+        const progress = `${next.updated ?? ""}/${next.completed ?? 0}/${next.state}`
+        if (
+          (scanWasRunning.current && next.state === "complete") ||
+          (next.completed && progress !== scanProgress.current)
+        ) {
           const updated = await api<Match>("/match")
           if (alive) {
             setMatch(updated)
             setDownload("")
           }
         }
+        scanProgress.current = progress
         scanWasRunning.current = next.state === "running"
       } catch {
         /* Library remains usable while the service restarts. */
@@ -332,7 +338,7 @@ export default function FilmRoom() {
             ["dismissed", "detected", "uncertain"].includes(filter),
           )) &&
         (collection !== "rallies" || isRally(c)) &&
-        (!reel || (c.keep && touchSupported(c))),
+        (!reel || c.keep),
     ) ?? []
   const filtered = scoped
     .filter((c) => {
@@ -341,7 +347,7 @@ export default function FilmRoom() {
         : c.tags
       const passes =
         filter === "detected"
-          ? !!c.detection && !touchSupported(c)
+          ? c.detection?.status === "automatic"
           : filter === "uncertain"
             ? !!c.detection &&
               !touchSupported(c) &&
@@ -380,7 +386,10 @@ export default function FilmRoom() {
   const index = filtered.findIndex((c) => c.id === id)
   const kept =
     match?.clips.filter(
-      (c) => c.keep && touchSupported(c) && (!player || hasTouch(c, player)),
+      (c) =>
+        c.keep &&
+        c.detection?.status !== "dismissed" &&
+        (!player || hasTouch(c, player)),
     ) ?? []
 
   function remember(value: Pending | null) {
@@ -570,7 +579,7 @@ export default function FilmRoom() {
               {match
                 ? scoped.length +
                   (player
-                    ? " touch clips · "
+                    ? " clips · "
                     : collection === "rallies"
                       ? " rallies · "
                       : " clips · ") +
@@ -586,7 +595,7 @@ export default function FilmRoom() {
               onClick={() => startScan()}
             >
               <ScanLine size={16} />
-              {scan.state === "running" ? "Scanning…" : "Analyze on devbox"}
+              {scan.state === "running" ? "Checking…" : "Verify touches"}
             </Button>
             {scan.state !== "idle" && (
               <Button
@@ -594,7 +603,7 @@ export default function FilmRoom() {
                 disabled={startingScan}
                 onClick={() => startScan(true)}
               >
-                Sync analysis
+                Sync checks
               </Button>
             )}
             <Button
@@ -624,14 +633,14 @@ export default function FilmRoom() {
                 {scan.state === "running"
                   ? scan.phase
                   : scan.state === "complete"
-                    ? "Video analysis complete"
+                    ? "GPU checks complete"
                     : scan.state === "needs_review"
                       ? "Draft analysis ready for review"
                       : "Scan paused"}
               </strong>
               <span>
                 {scan.state === "running"
-                  ? `${scan.completed ?? 0} / ${scan.total ?? "…"} windows analyzed`
+                  ? `${scan.completed ?? 0} / ${scan.total ?? "…"} ${scan.unit ?? "clips"} checked`
                   : scan.state === "complete"
                     ? null
                     : scan.phase}
@@ -756,7 +765,7 @@ export default function FilmRoom() {
           <p className="coverage">
             {collection === "rallies"
               ? `${scoped.filter((c) => c.analysis?.status === "reviewed").length} reviewed · ${scoped.filter((c) => c.analysis?.status !== "reviewed").length} AI descriptions`
-              : `${scoped.filter((c) => c.tags.length).length} tagged · ${scoped.filter((c) => hasTouch(c)).length} touch clips`}
+              : `${scoped.filter((c) => hasTouch(c) && (!c.detection || c.detection.status === "confirmed")).length} confirmed · ${scoped.filter((c) => c.detection?.status === "automatic").length} candidates`}
           </p>
         </div>
         {!active && status && (

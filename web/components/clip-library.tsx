@@ -3,9 +3,9 @@ import { Button } from "@/components/ui/button"
 import {
   clock,
   clipName,
+  contactLabel,
   isRally,
   rallyDuration,
-  touchSupported,
   clipDescription,
   type Clip,
 } from "@/lib/film"
@@ -16,12 +16,7 @@ export function labeling(clip: Clip) {
       ? "Rally reviewed"
       : "AI-described rally"
   if (clip.analysis?.kind === "between_points") return "Between points"
-  if (clip.detection?.status === "dismissed") return "Dismissed"
-  if (clip.detection?.status === "confirmed") return "Touch confirmed"
-  if (clip.detection)
-    return clip.detection.validation === "supported"
-      ? "AI touch candidate"
-      : "Unverified · excluded from reels"
+  if (clip.detection) return contactLabel(clip)
   if (!clip.tags.length) return "No player tags"
   if (clip.tags.some((t) => t.skill !== "Appearance")) return "Touch labeled"
   if (clip.tags.some((t) => t.source !== "automatic")) return "Player confirmed"
@@ -146,7 +141,7 @@ export function ClipLibrary({
               {c.detection.status === "dismissed" ? "Restore" : "Dismiss"}
             </button>
           )}
-          {touchSupported(c) && (
+          {c.detection?.status !== "dismissed" && (
             <button
               className="keep-button"
               aria-label={

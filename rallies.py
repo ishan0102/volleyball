@@ -94,7 +94,7 @@ def apply_analysis(state, analysis, match_id):
             if is_generated:
                 item[key] = value
         # First-pass frame descriptions are not sufficient to prove exact contact/identity.
-        # Keep every old detection recoverable, but out of touch counts and automatic reels.
+        # Preserve candidate visibility; only explicit human decisions confirm/dismiss.
         if item.get("detection") and "validation" not in item["detection"]:
             item["detection"]["validation"] = "unverified"
     rows = combine_rallies(

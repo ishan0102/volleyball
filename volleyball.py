@@ -250,13 +250,17 @@ def serve(folder, port, open_browser=False):
                             return self.reply(analysis_status())
                         cache = folder / "analysis"
                         cache.mkdir(exist_ok=True)
-                        action = "start" if self.path == "/analyze-footage" else "sync"
+                        action = (
+                            "contacts"
+                            if self.path == "/analyze-footage"
+                            else "sync-contacts"
+                        )
                         save(
                             cache / "transfer.json",
                             {
                                 "state": "running",
                                 "phase": "Preparing devbox analysis"
-                                if action == "start"
+                                if action == "contacts"
                                 else "Fetching devbox analysis",
                             },
                         )
@@ -277,7 +281,7 @@ def serve(folder, port, open_browser=False):
                             {
                                 "state": "running",
                                 "phase": "Preparing devbox analysis"
-                                if action == "start"
+                                if action == "contacts"
                                 else "Fetching devbox analysis",
                             }
                         )

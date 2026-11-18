@@ -123,7 +123,7 @@ export function FilmShell({
           <Users size={16} />
         </button>
         <div className="player-section">
-          <div className="roster-heading">Player touches</div>
+          <div className="roster-heading">Players</div>
           <nav aria-label="Players" className="player-nav">
             {names.map((name) => {
               const count =
@@ -132,7 +132,7 @@ export function FilmShell({
                 <>
                   <span className="nav-label">{name}</span>
                   {count > 0 && (
-                    <small aria-label={count + " touch clips"}>{count}</small>
+                    <small aria-label={count + " clips"}>{count}</small>
                   )}
                 </>
               )
