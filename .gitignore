@@ -14,3 +14,16 @@ out/
 *.tsbuildinfo
 .env*
 models/ravel/
+
+# Private recordings, derived media, and machine-specific settings
+config.local.json
+*.mkv
+*.avi
+*.webm
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.heic
+*.wav
+*.mp3

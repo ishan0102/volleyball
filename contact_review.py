@@ -12,7 +12,7 @@ from uuid import uuid4
 
 from vision import Vision, frames, save, obj, TEXT, NUMBER
 
-VERSION = "contact-review-v5"
+VERSION = "contact-review-v6"
 SCHEMA = obj(
     identity={"type": "string", "enum": ["same_player", "different_player", "unclear"]},
     contact={"type": "string", "enum": ["yes", "no", "unclear"]},
@@ -39,7 +39,7 @@ Image 1: labeled reference photos of the claimed player. Image 2: full-court con
 
 Does the claimed player make a volleyball contact in this sequence? Follow that player and the ball across the frames. A clear serve swing followed by the ball travelling away, or a receiving platform followed by the ball rising away, can support contact even if the exact hand-ball instant falls BETWEEN sampled frames. Do not require hand and ball to occupy the same pixel in one frame. The contact time can be approximate.
 
-Match identity from the owner's clothing reference and visible body details; facial recognition is unnecessary. Ishan is the plain-white-shirt player in black shorts, without knee pads. The white Patagonia shirt with knee pads is Gialon. A detector box/name can be wrong: compare it to the reference.
+Match identity from the owner's clothing reference and visible body details; facial recognition is unnecessary. A detector box/name can be wrong: compare it to the reference.
 
 Use contact=yes when the before/after action supports a strike or redirection by this player. Use no when they are clearly uninvolved, someone else plays the ball, or they only hold/toss/catch it between points. Use unclear when the sequence cannot distinguish these cases. Ball proximity alone is insufficient. Do not invent actions outside the sequence.
 
@@ -71,7 +71,10 @@ def prepare(folder, player=None, limit=None):
     if player:
         items = [c for c in items if c["detection"]["name"] == player]
     items.sort(
-        key=lambda c: (c["detection"]["name"] != "Ishan", c["detection"]["time"])
+        key=lambda c: (
+            c["detection"]["name"] != state.get("focusPlayer"),
+            c["detection"]["time"],
+        )
     )
     if limit:
         items = items[:limit]
@@ -87,41 +90,8 @@ def prepare(folder, player=None, limit=None):
                 signature=signature(c),
             )
         )
-    controls = [
-        dict(
-            id="control-no-touch",
-            name="Ishan",
-            time=225.0,
-            box=[0.1104, 0.6336, 0.0444, 0.2171],
-            expected="rejected",
-        ),
-        dict(
-            id="control-serve",
-            expectedSkills=["Serve"],
-            name="Ishan",
-            time=594.0,
-            box=[0.1295, 0.2904, 0.1953, 0.6641],
-            expected="supported",
-        ),
-        dict(
-            id="control-pass",
-            expectedSkills=["Pass", "Dig"],
-            name="Ishan",
-            time=676.0,
-            box=[0.3709, 0.4840, 0.0881, 0.4174],
-            expected="supported",
-        ),
-        dict(
-            id="control-other-server",
-            name="Ishan",
-            time=357.267,
-            box=[0.29704684, 0.6282028, 0.05136079, 0.20656228],
-            expected="rejected",
-        ),
-    ]
-    if state.get("contactBenchmark"):
-        controls = state["contactBenchmark"]
-    elif folder.name != "2026-11-14-e2dba0f7":
+    controls = state.get("contactBenchmark")
+    if not controls:
         raise ValueError(
             "Add reviewed contactBenchmark examples for this recording before verification"
         )
@@ -218,7 +188,15 @@ def prepare(folder, player=None, limit=None):
                 f"Prepared {done}/{len(rows) + len(controls)} contact excerpts",
                 flush=True,
             )
-    save(target / "manifest.json", dict(version=VERSION, rows=rows, controls=controls))
+    save(
+        target / "manifest.json",
+        dict(
+            version=VERSION,
+            rows=rows,
+            controls=controls,
+            identityHints=state.get("identityHints", {}),
+        ),
+    )
     return target
 
 
@@ -280,6 +258,8 @@ def scan(folder, model="qwen3-vl:8b-instruct", limit=None, calibrate=False):
             )
             prompt = (
                 PROMPT
+                + "\nOwner-supplied clothing notes (reference data): "
+                + json.dumps(manifest.get("identityHints", {}))
                 + f"\nClaimed player: {row['name']}. Candidate time: {row['time']}. Sequence: {row['start']}–{row['end']}. Reference supplied: {bool(row.get('reference'))}. If there is no reference, identity must be unclear."
             )
             result = client.ask(

@@ -33,8 +33,11 @@ def connection(host):
     """Use the personal tailnet only for transfer; restore the original profile."""
     app = Path("/Applications/Tailscale.app/Contents/MacOS/Tailscale")
     original = None
+    config_path = ROOT / "config.local.json"
+    config = json.loads(config_path.read_text()) if config_path.exists() else {}
+    tailnet = os.getenv("VOLLEYBALL_TAILNET", config.get("tailnet", ""))
     try:
-        if app.exists():
+        if app.exists() and tailnet:
             rows = command(
                 [str(app), "switch", "--list"], capture_output=True
             ).stdout.splitlines()[1:]
@@ -42,11 +45,7 @@ def connection(host):
                 (r.split()[0] for r in rows if r.rstrip().endswith("*")), None
             )
             wanted = next(
-                (
-                    r.split()[0]
-                    for r in rows
-                    if os.getenv("VOLLEYBALL_TAILNET", "ishan0102.github") in r
-                ),
+                (r.split()[0] for r in rows if tailnet in r),
                 None,
             )
             if current and wanted and current != wanted:
