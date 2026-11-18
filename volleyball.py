@@ -353,10 +353,18 @@ def serve(folder, port, open_browser=False):
                         or "team"
                     )
                     name = f"{slug}-r{state['revision']}-{hashlib.sha256(player.encode()).hexdigest()[:6]}.mp4"
+                    clip_id = data.get("clipId")
+                    if "clipId" in data:
+                        if not isinstance(clip_id, str) or not any(
+                            c["id"] == clip_id for c in state["clips"]
+                        ):
+                            raise ValueError("Unknown clip.")
+                        digest = hashlib.sha256(clip_id.encode()).hexdigest()[:16]
+                        name = f"clip-{digest}-r{state['revision']}.mp4"
                     target = folder / "exports" / name
                     target.parent.mkdir(exist_ok=True)
                     if not target.exists():
-                        export(state, player, target)
+                        export(state, player, target, clip_id=clip_id)
                     return self.reply({"url": "/exports/" + name})
                 self.send_error(404)
             except (ValueError, KeyError, TypeError, OSError, RuntimeError) as err:

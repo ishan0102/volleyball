@@ -15,6 +15,7 @@ With no path, the script opens the newest video in `~/Documents/personal/volleyb
 ## Review
 
 - Browse clips by player, search by name, touch, or time, and use label-status filters to find untagged footage. Choose a grid or list and sort by match order, newest, or duration. Filters and the open clip are saved in the URL.
+- To export one rally, open it, choose **Export clip**, then **Download MP4**. This uses its saved start/end points and original audio, without changing the reel selection.
 - Open a clip to watch it. Use previous/next, the clip timeline, and **Replay clip** to review a moment. **Full recording** allows playback beyond the clip.
 - Pause and choose **Tag player**, then click the player’s shirt and save their name, touch, and outcome. Existing tags can be edited from the clip details. Unsaved tags survive a refresh.
 - Keep clips with the bookmark button, browse **Reel**, and use **Export reel** to render the selected player’s kept clips or the team reel from the original movie.

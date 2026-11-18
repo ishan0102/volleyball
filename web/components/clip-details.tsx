@@ -1,8 +1,9 @@
 import { useState } from "react"
-import { Pencil, Trash2 } from "lucide-react"
+import { Download, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
+  api,
   clock,
   isRally,
   rallyDuration,
@@ -32,6 +33,25 @@ export function ClipDetails({
 }: Props) {
   const [details, setDetails] = useState<Clip | null>(null)
   const [error, setError] = useState("")
+  const [exporting, setExporting] = useState(false)
+  const [download, setDownload] = useState<{
+    url: string
+    start: number
+    end: number
+  } | null>(null)
+  const ready = download?.start === clip.start && download?.end === clip.end
+  async function exportClip() {
+    setExporting(true)
+    setError("")
+    try {
+      const result = await api<{ url: string }>("/export", { clipId: clip.id })
+      setDownload({ ...result, start: clip.start, end: clip.end })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not export clip.")
+    } finally {
+      setExporting(false)
+    }
+  }
   const tags = clip.tags
   function trim(side: "start" | "end") {
     if (!details) return
@@ -56,6 +76,21 @@ export function ClipDetails({
           <h2>Clip details</h2>
         </div>
         <div className="buttons">
+          {ready && download ? (
+            <a className="download" href={download.url} download>
+              Download MP4
+            </a>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy || !!details || exporting}
+              onClick={exportClip}
+            >
+              <Download />
+              {exporting ? "Exporting…" : "Export clip"}
+            </Button>
+          )}
           <Button
             variant={clip.keep ? "secondary" : "outline"}
             size="sm"
@@ -84,6 +119,7 @@ export function ClipDetails({
           </Button>
         </div>
       </div>
+      {error && <p role="alert">{error}</p>}
       {clip.detection && (
         <div className="touch-review-panel">
           <strong>{contactLabel(clip)}</strong>
@@ -228,7 +264,6 @@ export function ClipDetails({
               Cancel
             </Button>
           </div>
-          {error && <p role="alert">{error}</p>}
         </div>
       )}
       <div className="tag-list">

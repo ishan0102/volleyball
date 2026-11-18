@@ -1,6 +1,7 @@
 {
   "name": "volleyball-film-room",
   "private": true,
+  "packageManager": "bun@1.2.16",
   "scripts": {
     "dev": "next dev --webpack --hostname 127.0.0.1 --port 8731",
     "build": "next build --webpack",

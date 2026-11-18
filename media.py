@@ -205,8 +205,14 @@ def reel_segments(state, player=""):
     return segments
 
 
-def export(state, player, target):
-    cuts = reel_segments(state, player)
+def export(state, player, target, clip_id=None):
+    if clip_id is not None:
+        item = next((c for c in state["clips"] if c["id"] == clip_id), None)
+        if item is None:
+            raise ValueError("Unknown clip.")
+        cuts = [dict(start=item["start"], end=item["end"])]
+    else:
+        cuts = reel_segments(state, player)
     if not cuts:
         raise ValueError("Keep at least one clip for this reel.")
     with tempfile.TemporaryDirectory(dir=target.parent) as tmp:
