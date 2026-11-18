@@ -1,12 +1,27 @@
 import { Bookmark, Play, SearchX, X, Undo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { clock, clipName, type Clip } from "@/lib/film"
+import {
+  clock,
+  clipName,
+  isRally,
+  rallyDuration,
+  touchSupported,
+  clipDescription,
+  type Clip,
+} from "@/lib/film"
 
 export function labeling(clip: Clip) {
+  if (isRally(clip))
+    return clip.analysis?.status === "reviewed"
+      ? "Rally reviewed"
+      : "AI-described rally"
+  if (clip.analysis?.kind === "between_points") return "Between points"
   if (clip.detection?.status === "dismissed") return "Dismissed"
   if (clip.detection?.status === "confirmed") return "Touch confirmed"
   if (clip.detection)
-    return clip.detection.uncertain ? "Uncertain · included" : "Detected touch"
+    return clip.detection.validation === "supported"
+      ? "AI touch candidate"
+      : "Unverified · excluded from reels"
   if (!clip.tags.length) return "No player tags"
   if (clip.tags.some((t) => t.skill !== "Appearance")) return "Touch labeled"
   if (clip.tags.some((t) => t.source !== "automatic")) return "Player confirmed"
@@ -77,16 +92,31 @@ export function ClipLibrary({
               <span className="play-overlay">
                 <Play size={24} fill="currentColor" />
               </span>
-              <span className="duration">{Math.round(c.end - c.start)}s</span>
+              <span className="duration">
+                {Math.round(rallyDuration(c))}s{isRally(c) ? " rally" : ""}
+              </span>
             </div>
             <div className="clip-copy">
               <div className="clip-time">
                 {clock(c.start)} – {clock(c.end)}
               </div>
-              <h2>{clipName(c)}</h2>
-              {c.description && (
-                <p className="clip-description">{c.description}</p>
+              {isRally(c) && (
+                <div className="rally-kicker">
+                  Rally {c.analysis?.number}
+                  {!c.analysis?.complete ? " · partial view" : ""}
+                </div>
               )}
+              <h2>{clipName(c)}</h2>
+              {clipDescription(c) && (
+                <p className="clip-description">{clipDescription(c)}</p>
+              )}
+              {isRally(c) &&
+                (c.analysis?.highlightScore ?? 0) >= 3 &&
+                c.analysis?.highlightReason && (
+                  <p className="highlight-reason">
+                    {c.analysis.highlightReason}
+                  </p>
+                )}
               <div
                 className={"label-state " + (!c.tags.length ? "untagged" : "")}
               >
@@ -123,7 +153,7 @@ export function ClipLibrary({
               {c.detection.status === "dismissed" ? "Restore" : "Dismiss"}
             </button>
           )}
-          {c.detection?.status !== "dismissed" && (
+          {touchSupported(c) && (
             <button
               className="keep-button"
               aria-label={

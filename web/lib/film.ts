@@ -7,6 +7,7 @@ export type Tag = Mark & {
   result: string
 }
 export type Detection = {
+  validation?: "supported" | "unverified" | "rejected"
   time: number
   score: number
   identityScore: number
@@ -16,7 +17,7 @@ export type Detection = {
   box: number[]
 }
 export type ScanStatus = {
-  state: "idle" | "running" | "complete" | "failed"
+  state: "idle" | "running" | "complete" | "needs_review" | "failed"
   phase?: string
   completed?: number
   total?: number
@@ -24,6 +25,27 @@ export type ScanStatus = {
   detected?: number
 }
 export type Clip = {
+  analysis?: {
+    kind: "rally" | "serve" | "between_points" | "unclear"
+    title: string
+    description: string
+    liveStart?: number
+    liveEnd?: number
+    complete?: boolean
+    highlightScore?: number
+    highlightReason?: string
+    number?: number
+    model: string
+    status: "automatic" | "reviewed"
+    claim?: string
+    evidence?: string
+    moments?: {
+      time: number
+      action: string
+      player: string
+      evidence: string
+    }[]
+  }
   detection?: Detection
   id: string
   start: number
@@ -33,7 +55,25 @@ export type Clip = {
   note: string
   description?: string
 }
+export type CoachingNote = {
+  id: string
+  player: string
+  kind: "strength" | "improvement"
+  title: string
+  observation: string
+  action: string
+  drill?: string
+  evidence: { clipId: string; time: number }[]
+}
 export type Match = {
+  coaching?: CoachingNote[]
+  analysis?: {
+    labeled: number
+    rallies: number
+    windows: number[]
+    totalWindows: number
+    model: string
+  }
   appearances?: Record<string, Appearance>
   title: string
   match_id: string
@@ -70,18 +110,57 @@ export function hasTouch(
   includeDismissed = false,
 ) {
   if (!includeDismissed && clip.detection?.status === "dismissed") return false
+  if (!includeDismissed && !touchSupported(clip)) return false
   return clip.tags.some(
     (t) => (!player || t.name === player) && touchSkills.includes(t.skill),
   )
 }
 
+export function touchSupported(clip: Clip) {
+  return (
+    !clip.detection ||
+    clip.detection.status === "confirmed" ||
+    (clip.detection.status !== "dismissed" &&
+      clip.detection.validation === "supported")
+  )
+}
+
+export function isRally(clip: Clip) {
+  return (
+    clip.analysis?.kind === "rally" && clip.analysis.liveStart !== undefined
+  )
+}
+
+export function rallyDuration(clip: Clip) {
+  return clip.analysis?.liveStart !== undefined &&
+    clip.analysis.liveEnd !== undefined
+    ? clip.analysis.liveEnd - clip.analysis.liveStart
+    : clip.end - clip.start
+}
+
 export function clipName(clip: Clip) {
+  if (
+    clip.detection &&
+    !touchSupported(clip) &&
+    clip.note.endsWith(" · detected touch")
+  )
+    return "Unverified detection · " + clip.tags.map((t) => t.name).join(", ")
   return (
     clip.note ||
     (clip.tags.length
       ? Array.from(new Set(clip.tags.map((t) => t.name))).join(" · ")
       : "Suggested clip")
   )
+}
+
+export function clipDescription(clip: Clip) {
+  if (
+    clip.detection &&
+    !touchSupported(clip) &&
+    clip.description?.startsWith("Ball contact detected at ")
+  )
+    return "Unverified candidate. Watch the footage to check for an actual ball contact."
+  return clip.description
 }
 
 export async function api<T>(path: string, body?: unknown): Promise<T> {

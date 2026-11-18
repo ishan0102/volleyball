@@ -44,9 +44,6 @@ export function VideoPlayer({
           preload="metadata"
           controls={!tagging && !draft}
           src="/preview.mp4"
-          onLoadedMetadata={(e) => {
-            e.currentTarget.currentTime = draft?.time ?? clip.start
-          }}
           onError={() =>
             setError(
               "The video could not load. Refresh and check that the match preview is available.",

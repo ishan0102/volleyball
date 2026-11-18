@@ -1259,3 +1259,166 @@ kbd {
     flex-wrap: wrap;
   }
 }
+
+.rally-browse {
+  margin: 20px 0 24px;
+  display: grid;
+  gap: 10px;
+}
+.rally-browse > p {
+  color: #69675f;
+  font-size: 13px;
+}
+.collection-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #ddd9cf;
+}
+.collection-tabs button {
+  padding: 10px 14px;
+  color: #69675f;
+  border-bottom: 2px solid transparent;
+}
+.collection-tabs button[aria-pressed="true"] {
+  color: #282823;
+  border-bottom-color: #4f46e5;
+  font-weight: 550;
+}
+.collection-tabs button:hover {
+  background: #eae6dd;
+  border-radius: 6px 6px 0 0;
+}
+.rally-kicker {
+  color: #69675f;
+  font-size: 12px;
+  margin: 3px 0 5px;
+}
+.highlight-reason {
+  color: #514586;
+  font-size: 12px;
+  line-height: 1.55;
+  padding-top: 10px;
+}
+.rally-detail {
+  display: grid;
+  gap: 14px;
+  margin: 16px 0;
+}
+.rally-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  color: #69675f;
+  font-size: 12px;
+}
+.rally-moments {
+  display: grid;
+  gap: 3px;
+  border-top: 1px solid #ddd9cf;
+  padding-top: 16px;
+}
+.rally-moments h3 {
+  font-size: 13px;
+  font-weight: 550;
+  padding-bottom: 8px;
+}
+.rally-moments button {
+  display: flex;
+  gap: 14px;
+  text-align: left;
+  padding: 10px 8px;
+  margin: 0 -8px;
+  border-radius: 8px;
+}
+.rally-moments button:hover {
+  background: #eae6dd;
+}
+.rally-moments button > span:last-child {
+  display: grid;
+  gap: 3px;
+}
+.rally-moments small {
+  color: #69675f;
+  font-size: 12px;
+  line-height: 1.5;
+}
+@media (max-width: 600px) {
+  .collection-tabs {
+    overflow-x: auto;
+  }
+  .collection-tabs button {
+    white-space: nowrap;
+    padding: 12px 10px;
+  }
+}
+
+.player-feedback {
+  margin: 20px 0 28px;
+}
+.feedback-heading {
+  margin-bottom: 14px;
+}
+.feedback-heading h2 {
+  font-size: 20px;
+  margin-bottom: 5px;
+}
+.feedback-heading p {
+  font-size: 13px;
+  color: #69675f;
+}
+.feedback-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.feedback-grid article {
+  background: #fbf9f3;
+  border: 1px solid #ddd9cf;
+  border-radius: 12px;
+  padding: 20px;
+}
+.feedback-grid article > small {
+  color: #69675f;
+  font-size: 12px;
+}
+.feedback-grid h3 {
+  margin: 8px 0;
+  font-size: 17px;
+  font-weight: 550;
+  letter-spacing: -0.02em;
+}
+.feedback-grid article > p {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.practice-cue {
+  margin-top: 12px;
+}
+.practice-cue strong {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.practice-drill {
+  color: #69675f;
+  margin-top: 8px;
+}
+.feedback-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.feedback-evidence button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #4f46e5;
+  font-size: 13px;
+  padding: 5px 0;
+}
+@media (max-width: 760px) {
+  .feedback-grid {
+    grid-template-columns: 1fr;
+  }
+}

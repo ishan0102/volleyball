@@ -2,7 +2,15 @@ import { useState } from "react"
 import { Pencil, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { clock, type Clip, type Tag } from "@/lib/film"
+import {
+  clock,
+  isRally,
+  rallyDuration,
+  touchSupported,
+  clipDescription,
+  type Clip,
+  type Tag,
+} from "@/lib/film"
 
 type Props = {
   clip: Clip
@@ -51,12 +59,10 @@ export function ClipDetails({
           <Button
             variant={clip.keep ? "secondary" : "outline"}
             size="sm"
-            disabled={
-              busy || !!details || clip.detection?.status === "dismissed"
-            }
+            disabled={busy || !!details || !touchSupported(clip)}
             onClick={() => save({ ...clip, keep: !clip.keep })}
           >
-            {clip.detection?.status === "dismissed"
+            {!touchSupported(clip)
               ? "Excluded from reel"
               : clip.keep
                 ? "Kept in reel"
@@ -83,12 +89,14 @@ export function ClipDetails({
               ? "Dismissed touch"
               : clip.detection.status === "confirmed"
                 ? "Touch confirmed"
-                : clip.detection.uncertain
-                  ? "Uncertain touch · included"
-                  : "Detected touch · included"}
+                : clip.detection.validation === "supported"
+                  ? "AI touch candidate"
+                  : "Unverified detection · excluded"}
           </strong>
           <p>
-            Jump to the contact to check the play or change the player below.
+            The old detector may have assigned a nearby player without a
+            contact. Confirm only if this player actually touches the ball.
+            Otherwise dismiss it.
           </p>
           <div className="buttons">
             <Button
@@ -96,7 +104,7 @@ export function ClipDetails({
               variant="outline"
               onClick={() => seek(clip.detection!.time)}
             >
-              Contact · {clock(clip.detection.time)}
+              Check · {clock(clip.detection.time)}
             </Button>
             {clip.detection.status !== "confirmed" &&
               clip.detection.status !== "dismissed" && (
@@ -106,7 +114,7 @@ export function ClipDetails({
                   disabled={busy}
                   onClick={() => review(clip, "confirmed")}
                 >
-                  Looks right
+                  Confirm actual touch
                 </Button>
               )}
             <Button
@@ -129,9 +137,48 @@ export function ClipDetails({
           </div>
         </div>
       )}
+      {isRally(clip) && (
+        <div className="rally-detail">
+          <div className="rally-facts">
+            <span>{Math.round(rallyDuration(clip))}s of play</span>
+            <span>
+              {clip.analysis?.complete ? "Full rally" : "Boundary needs review"}
+            </span>
+            <span>
+              {clip.analysis?.status === "reviewed"
+                ? "Reviewed"
+                : "AI description"}
+            </span>
+          </div>
+          {clip.analysis?.highlightReason && (
+            <p className="highlight-reason">{clip.analysis.highlightReason}</p>
+          )}
+          {!!clip.analysis?.moments?.length && (
+            <div className="rally-moments">
+              <h3>Play by play</h3>
+              {clip.analysis.moments.map((m, i) => (
+                <button key={i} onClick={() => seek(m.time)}>
+                  <span className="time">{clock(m.time)}</span>
+                  <span>
+                    <strong>{m.action}</strong>
+                    <small>
+                      {m.player}
+                      {m.player ? " · " : ""}
+                      {m.evidence}
+                    </small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {clip.analysis?.evidence && clip.detection && (
+        <p className="hint">Video analysis: {clip.analysis.evidence}</p>
+      )}
       {!details &&
-        (clip.description ? (
-          <p className="play-description">{clip.description}</p>
+        (clipDescription(clip) ? (
+          <p className="play-description">{clipDescription(clip)}</p>
         ) : (
           <p className="hint">
             No play description yet. Edit clip details to add what happened.

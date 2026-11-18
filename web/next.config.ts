@@ -7,6 +7,9 @@ const config: NextConfig = {
   async rewrites() {
     return [
       "/match",
+      "/analysis-status",
+      "/analyze-footage",
+      "/sync-analysis",
       "/touch-scan",
       "/scan-touches",
       "/review-touch",

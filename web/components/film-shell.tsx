@@ -2,6 +2,7 @@
 
 import {
   Film,
+  Volleyball,
   Grid2X2,
   ListChecks,
   Bookmark,
@@ -19,7 +20,11 @@ export function FilmShell({
   reel = false,
   choose,
   children,
+  collection = "all",
+  chooseCollection,
 }: {
+  collection?: string
+  chooseCollection?: (value: string) => void
   match: Match | null
   section: "clips" | "review"
   player?: string
@@ -37,11 +42,20 @@ export function FilmShell({
   ].sort()
   const items = [
     {
+      label: "Rallies",
+      icon: Volleyball,
+      href: "/",
+      active:
+        section === "clips" && collection === "rallies" && !player && !reel,
+      action: chooseCollection ? () => chooseCollection("rallies") : undefined,
+    },
+    {
       label: "All clips",
       icon: Grid2X2,
-      href: "/",
-      active: section === "clips" && !player && !reel,
-      action: () => choose?.("", false),
+      href: "/?view=all",
+      active: section === "clips" && collection === "all" && !player && !reel,
+      action: () =>
+        chooseCollection ? chooseCollection("all") : choose?.("", false),
     },
     {
       label: "Reel",
@@ -185,7 +199,13 @@ export function FilmShell({
           <a href="/">Volleyball</a>
           <span>
             {player ||
-              (section === "review" ? "Review" : reel ? "Reel" : "All clips")}
+              (section === "review"
+                ? "Review"
+                : reel
+                  ? "Reel"
+                  : collection === "rallies"
+                    ? "Rallies"
+                    : "All clips")}
           </span>
         </header>
         <dialog

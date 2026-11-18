@@ -58,6 +58,7 @@ def serve(folder, port, open_browser=False):
     manifest = folder / "match.json"
     lock = threading.Lock()
     scan_process = None
+    analysis_process = None
     scan_lock = threading.Lock()
 
     def scan_status():
@@ -76,6 +77,17 @@ def serve(folder, port, open_browser=False):
                 result.update(
                     state="failed", phase="Scan interrupted. Run it again to resume."
                 )
+        return result
+
+    def analysis_status():
+        path = folder / "analysis" / "status.json"
+        result = json.loads(path.read_text()) if path.exists() else {"state": "idle"}
+        if analysis_process is not None and analysis_process.poll() is None:
+            transfer = folder / "analysis" / "transfer.json"
+            if transfer.exists():
+                local = json.loads(transfer.read_text())
+                if local.get("state") == "running":
+                    return local
         return result
 
     def view(state):
@@ -192,6 +204,8 @@ def serve(folder, port, open_browser=False):
                             self.send_error(500)
                             return
                     return self.file(target, "image/jpeg")
+            if route == "/analysis-status":
+                return self.reply(analysis_status())
             if route == "/touch-scan":
                 return self.reply(scan_status())
             if route == "/match":
@@ -204,7 +218,7 @@ def serve(folder, port, open_browser=False):
             self.send_error(404)
 
         def do_POST(self):
-            nonlocal scan_process
+            nonlocal scan_process, analysis_process
             try:
                 origin = self.headers.get("Origin")
                 host = self.headers.get("Host", "")
@@ -227,6 +241,46 @@ def serve(folder, port, open_browser=False):
                 if not 0 < size <= 256000:
                     raise ValueError("Invalid request size.")
                 data = json.loads(self.rfile.read(size))
+                if self.path in ("/analyze-footage", "/sync-analysis"):
+                    with scan_lock:
+                        if (
+                            analysis_process is not None
+                            and analysis_process.poll() is None
+                        ):
+                            return self.reply(analysis_status())
+                        cache = folder / "analysis"
+                        cache.mkdir(exist_ok=True)
+                        action = "start" if self.path == "/analyze-footage" else "sync"
+                        save(
+                            cache / "transfer.json",
+                            {
+                                "state": "running",
+                                "phase": "Preparing devbox analysis"
+                                if action == "start"
+                                else "Fetching devbox analysis",
+                            },
+                        )
+                        with (cache / "transfer.log").open("a") as log:
+                            analysis_process = subprocess.Popen(
+                                [
+                                    sys.executable,
+                                    "-u",
+                                    str(Path(__file__).with_name("devbox.py")),
+                                    action,
+                                    str(folder),
+                                ],
+                                stdout=log,
+                                stderr=subprocess.STDOUT,
+                                start_new_session=True,
+                            )
+                        return self.reply(
+                            {
+                                "state": "running",
+                                "phase": "Preparing devbox analysis"
+                                if action == "start"
+                                else "Fetching devbox analysis",
+                            }
+                        )
                 if self.path == "/scan-touches":
                     with scan_lock:
                         if (

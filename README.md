@@ -31,23 +31,38 @@ uv run --with 'openvino==2026.4.1' scan_players.py matches/<match-directory>
 
 The first scan downloads Intel’s Open Model Zoo person-reidentification-retail-0288 weights, verifies their checksums, and caches local crops and embeddings. The scan samples once per second, combines whole-body similarity with shirt and shorts colors, and requires agreement across adjacent samples. It saves at most one representative appearance per player per 45-second window. A clear match adds an ungraded appearance tag. Weaker matches appear under **Review player matches**, where you can compare the two crops, watch the surrounding footage, choose a different player, or dismiss the match. Add another manual pin or confirm a review to give the next scan another reference. Repeated scans preserve decisions and reuse cached detections. Reels still use the clips you mark to keep.
 
-### Find touches across the recording
+### Rallies and descriptions on devbox
 
-Choose **Find touches** in the film room. The scan runs locally in the background, shows progress, and refreshes the library when finished. It covers the entire prepared recording, matches contacts to the roster using your existing player references, and includes detected clips in player pages and reels by default.
+**Rallies** opens the reviewed rally collection. **Best**, **Longest**, and **Match order** sort the available rallies; this is not yet an exhaustive ranking of the entire match. Each rally has a description, live-play duration, review status, and clickable play-by-play moments. Partial rally boundaries are marked for review.
 
-Use **Uncertain touches** to prioritize lower-confidence contact or identity matches. **Dismiss** removes a detection from normal browsing, player counts, and exports; **Undo** restores it immediately. The **Dismissed touches** filter keeps all decisions recoverable after a refresh. In the viewer, **Contact** jumps to the predicted contact, **Looks right** confirms it, and the existing tag editor changes the player or touch type. Rerunning the scan preserves edits, confirmations, and dismissals.
-
-For a new recording, label the roster and run the player scan first. To run touch detection from a terminal:
+The experimental GPU pipeline runs privately on your devbox through its existing Ollama service on port 11435. It uses `qwen3-vl:8b-instruct` (install it on that service first), a compressed copy of the recording, and your labeled roster. No OpenAI API calls or paid analysis are used. The CLI temporarily switches to your personal Tailscale profile for transfer, then restores the original profile. Inference continues independently on the devbox.
 
 ```sh
-uv run --locked scan_touches.py matches/<match-directory>
+./scripts/analyze-devbox start matches/<match-directory>
+./scripts/analyze-devbox sync matches/<match-directory>
 ```
 
-The first pass downloads checksum-pinned model weights. Completed minutes are cached; interrupted runs resume them. Three workers are the default; use `--workers 1` to reduce CPU use. `--threshold 0.5` is the default contact threshold. Lowering it admits more candidates, but independent ball-motion validation still applies. The scan is local and does not upload footage.
+**Analyze on devbox** and **Sync analysis** provide the same workflow in the app. Thirty-second windows include overlapping context. Each window is cached by its frames, prompt, schema and model digest. Interrupted runs can resume. `--windows 7 19 61` runs a small calibration sample before a full recording. Start/sync logs and structured results live in the match's ignored `analysis/` directory.
 
-The detector uses the MIT-licensed [RAVEL-VB-013 contact model and VballNetFastV1 ball tracker](https://github.com/asigatchov/fast-volleyball-tracking-inference/tree/c3864156a4dfbd5af3f00f427ab0fc4bfe7af5b5). A temporal contact prediction must also have a moving ball near the predicted player in the independent tracker. Existing OpenVINO player embeddings and clothing references assign the identity. OpenVINO inference for the contact model must use full precision on this Mac; reduced precision suppresses player proposals. License: `models/RAVEL-LICENSE`.
+Sync fetches **drafts** without changing your clips. Inspect results against the original footage, especially player identity, serve strikes versus tosses, and rally endings. The initial Gemma and Qwen thinking-model trials did not meet this standard. See `tests/fixtures/video-audit.json` for the visual benchmark. A successful API response is not proof that a label is correct.
 
-Automatic events are labeled **Touch**, because the model detects contact but does not reliably distinguish serve, pass, set, attack, block, or dig. Confidence flags are ranking signals, not calibrated accuracy percentages. Occlusion, distant players, balls held between points, and similar clothing can still cause misses or false matches. Original manual touch labels and descriptions are preserved. Overlapping clips are merged when exporting a reel so the same footage is not repeated.
+After checking the draft quality, publish the results explicitly:
+
+```sh
+./scripts/analyze-devbox publish matches/<match-directory>
+```
+
+Publishing preserves manual prose, player tags, keep/dismiss decisions and edits made during a scan. It adds rally clips and fills machine-generated or empty descriptions. Cached reruns do not duplicate rallies. Generated descriptions remain labeled as AI descriptions; they do **not** verify individual touches.
+
+### Player touches and coaching
+
+The old detector produced too many false positives on this camera angle. Its automatic candidates are now **unverified** and excluded from player counts and reels. They remain available in All clips for correction. Confirm an actual touch only after watching it; dismiss removes the candidate, and Undo restores the previous decision. Existing manual touches remain available.
+
+The experimental contact scan can still be run with `uv run --locked scan_touches.py matches/<match-directory>`. It uses the MIT-licensed [RAVEL models](https://github.com/asigatchov/fast-volleyball-tracking-inference/tree/c3864156a4dfbd5af3f00f427ab0fc4bfe7af5b5), ball tracking and clothing references. Ball proximity alone does not prove contact, and identity similarity is not a calibrated probability. Model weights and minute results are cached locally. This scan is a candidate generator, not a source of verified statistics.
+
+**Your next practice** on a player page contains evidence-linked feedback. Each note includes an observation, a concrete practice cue, an optional drill and clickable supporting clips. A single example is labeled as such. The current notes were visually reviewed; automatic coaching across the whole match is still unfinished.
+
+The coaching goal is to identify repeatable strengths and improvement opportunities from actual play: serve recovery, ready position, footwork, passing platform, approach and net timing, and decisions where the camera provides enough context. Feedback must explain what was visible and what to try next. Match-wide patterns need multiple examples; outcomes hidden by the camera, unsupported touch counts and invented performance grades are excluded.
 
 ### Appearance model
 

@@ -21,12 +21,16 @@ import { FilmShell } from "@/components/film-shell"
 import { ClipLibrary } from "@/components/clip-library"
 import { ClipDetails } from "@/components/clip-details"
 import { TagEditor } from "@/components/tag-editor"
+import { PlayerFeedback } from "@/components/player-feedback"
 import { VideoPlayer } from "@/components/video-player"
 import {
   api,
   clock,
   clipName,
   hasTouch,
+  touchSupported,
+  isRally,
+  rallyDuration,
   type Clip,
   type Draft,
   type Mark,
@@ -54,8 +58,9 @@ export default function FilmRoom() {
   const [player, setPlayer] = useState("")
   const [query, setQuery] = useState("")
   const [reel, setReel] = useState(false)
+  const [collection, setCollection] = useState("rallies")
   const [filter, setFilter] = useState<ViewFilter>("all")
-  const [sort, setSort] = useState("time")
+  const [sort, setSort] = useState("best")
   const [layout, setLayout] = useState<"grid" | "list">("grid")
   const [limit, setLimit] = useState(24)
   const [draft, setDraft] = useState<Pending | null>(null)
@@ -103,6 +108,14 @@ export default function FilmRoom() {
       }
       const params = new URLSearchParams(location.search)
       setPlayer(params.get("player") || "")
+      setCollection(
+        params.get("view") === "all" ||
+          params.has("player") ||
+          params.has("reel") ||
+          params.has("filter")
+          ? "all"
+          : "rallies",
+      )
       setReel(params.get("reel") === "1")
       setQuery(params.get("q") || "")
       setFilter(
@@ -120,9 +133,15 @@ export default function FilmRoom() {
           : "all") as ViewFilter,
       )
       setSort(
-        ["time", "latest", "duration"].includes(params.get("sort") || "")
+        ["time", "latest", "duration", "best"].includes(
+          params.get("sort") || "",
+        )
           ? params.get("sort")!
-          : "time",
+          : params.has("player") ||
+              params.get("view") === "all" ||
+              params.has("reel")
+            ? "time"
+            : "best",
       )
       setLayout(params.get("layout") === "list" ? "list" : "grid")
       setId(location.hash.slice(1))
@@ -172,6 +191,7 @@ export default function FilmRoom() {
   useEffect(() => {
     if (!ready.current) return
     const params = new URLSearchParams()
+    if (collection === "all") params.set("view", "all")
     if (player) params.set("player", player)
     if (reel) params.set("reel", "1")
     if (query) params.set("q", query)
@@ -185,7 +205,7 @@ export default function FilmRoom() {
       "/" + (search ? "?" + search : "") + (id ? "#" + id : ""),
     )
     savedUrl.current = location.pathname + location.search + location.hash
-  }, [player, reel, query, filter, sort, layout, id])
+  }, [player, reel, query, filter, sort, layout, id, collection])
 
   useEffect(() => {
     const modal = dialog.current
@@ -212,7 +232,7 @@ export default function FilmRoom() {
     let alive = true
     async function poll() {
       try {
-        const next = await api<ScanStatus>("/touch-scan")
+        const next = await api<ScanStatus>("/analysis-status")
         if (!alive) return
         setScan(next)
         if (scanWasRunning.current && next.state === "complete") {
@@ -235,10 +255,12 @@ export default function FilmRoom() {
     }
   }, [])
 
-  async function startScan() {
+  async function startScan(sync = false) {
     setStartingScan(true)
     try {
-      setScan(await api<ScanStatus>("/scan-touches", {}))
+      setScan(
+        await api<ScanStatus>(sync ? "/sync-analysis" : "/analyze-footage", {}),
+      )
       scanWasRunning.current = true
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not start scan")
@@ -303,8 +325,14 @@ export default function FilmRoom() {
         (filter === "dismissed"
           ? c.detection?.status === "dismissed"
           : c.detection?.status !== "dismissed") &&
-        (!player || hasTouch(c, player, filter === "dismissed")) &&
-        (!reel || c.keep),
+        (!player ||
+          hasTouch(
+            c,
+            player,
+            ["dismissed", "detected", "uncertain"].includes(filter),
+          )) &&
+        (collection !== "rallies" || isRally(c)) &&
+        (!reel || (c.keep && touchSupported(c))),
     ) ?? []
   const filtered = scoped
     .filter((c) => {
@@ -313,13 +341,16 @@ export default function FilmRoom() {
         : c.tags
       const passes =
         filter === "detected"
-          ? !!c.detection
+          ? !!c.detection && !touchSupported(c)
           : filter === "uncertain"
-            ? c.detection?.uncertain && c.detection.status === "automatic"
+            ? !!c.detection &&
+              !touchSupported(c) &&
+              c.detection.status === "automatic"
             : filter === "untagged"
               ? !c.tags.length
               : filter === "touches"
-                ? selectedTags.some((t) => t.skill !== "Appearance")
+                ? touchSupported(c) &&
+                  selectedTags.some((t) => t.skill !== "Appearance")
                 : filter === "automatic"
                   ? selectedTags.some((t) => t.source === "automatic")
                   : filter === "confirmed"
@@ -336,19 +367,20 @@ export default function FilmRoom() {
       return passes && text.includes(query.toLowerCase().trim())
     })
     .sort((a, b) =>
-      sort === "latest"
-        ? b.start - a.start
-        : sort === "duration"
-          ? b.end - b.start - (a.end - a.start)
-          : a.start - b.start,
+      sort === "best"
+        ? (b.analysis?.highlightScore ?? 0) -
+            (a.analysis?.highlightScore ?? 0) ||
+          rallyDuration(b) - rallyDuration(a)
+        : sort === "latest"
+          ? b.start - a.start
+          : sort === "duration"
+            ? rallyDuration(b) - rallyDuration(a)
+            : a.start - b.start,
     )
   const index = filtered.findIndex((c) => c.id === id)
   const kept =
     match?.clips.filter(
-      (c) =>
-        c.keep &&
-        c.detection?.status !== "dismissed" &&
-        (!player || hasTouch(c, player)),
+      (c) => c.keep && touchSupported(c) && (!player || hasTouch(c, player)),
     ) ?? []
 
   function remember(value: Pending | null) {
@@ -475,6 +507,7 @@ export default function FilmRoom() {
     }
   }
   function setScope(name: string, onlyReel: boolean) {
+    setCollection("all")
     scope.current++
     setPlayer(name)
     setReel(onlyReel)
@@ -512,6 +545,12 @@ export default function FilmRoom() {
       section="clips"
       player={player}
       reel={reel}
+      collection={collection}
+      chooseCollection={(value) => {
+        setScope("", false)
+        setCollection(value)
+        setSort(value === "rallies" ? "best" : "time")
+      }}
       choose={setScope}
     >
       <main className="library-page">
@@ -523,12 +562,18 @@ export default function FilmRoom() {
                 ? player + (reel ? "’s reel" : "’s clips")
                 : reel
                   ? "Your reel"
-                  : "Match clips"}
+                  : collection === "rallies"
+                    ? "Rallies"
+                    : "All clips"}
             </h1>
             <p className="subtitle">
               {match
                 ? scoped.length +
-                  (player ? " touch clips · " : " clips · ") +
+                  (player
+                    ? " touch clips · "
+                    : collection === "rallies"
+                      ? " rallies · "
+                      : " clips · ") +
                   clock(Math.round(match.duration)) +
                   " recording"
                 : "Loading your clips…"}
@@ -538,11 +583,20 @@ export default function FilmRoom() {
             <Button
               variant="outline"
               disabled={!match || startingScan || scan.state === "running"}
-              onClick={startScan}
+              onClick={() => startScan()}
             >
               <ScanLine size={16} />
-              {scan.state === "running" ? "Scanning…" : "Find touches"}
+              {scan.state === "running" ? "Scanning…" : "Analyze on devbox"}
             </Button>
+            {scan.state !== "idle" && (
+              <Button
+                variant="outline"
+                disabled={startingScan}
+                onClick={() => startScan(true)}
+              >
+                Sync analysis
+              </Button>
+            )}
             <Button
               variant="outline"
               disabled={!filtered.length}
@@ -570,20 +624,22 @@ export default function FilmRoom() {
                 {scan.state === "running"
                   ? scan.phase
                   : scan.state === "complete"
-                    ? "Whole-match scan complete"
-                    : "Scan paused"}
+                    ? "Video analysis complete"
+                    : scan.state === "needs_review"
+                      ? "Draft analysis ready for review"
+                      : "Scan paused"}
               </strong>
               <span>
                 {scan.state === "running"
-                  ? `${scan.completed ?? 0} / ${scan.total ?? "…"} minutes processed`
+                  ? `${scan.completed ?? 0} / ${scan.total ?? "…"} windows analyzed · sync to fetch the latest results`
                   : scan.state === "complete"
-                    ? `${scan.detected ?? 0} contacts detected · included unless you dismiss them`
+                    ? "Rally descriptions are available in your library"
                     : scan.phase}
               </span>
             </div>
             {scan.state === "running" && (
               <progress
-                aria-label="Touch scan progress"
+                aria-label="Video analysis progress"
                 value={scan.completed ?? 0}
                 max={scan.total ?? 60}
               />
@@ -592,12 +648,68 @@ export default function FilmRoom() {
         )}
         {player && (
           <p className="scope-note">
-            Clips with a labeled touch by {player}. Appearance matches stay in{" "}
+            Reviewed contacts by {player}. Unverified detections are in the
+            Candidate touches filter. Appearance matches stay in{" "}
             <a href={"/review?player=" + encodeURIComponent(player)}>
               player review
             </a>
             .
           </p>
+        )}
+        {collection === "rallies" && (
+          <div className="rally-browse">
+            <div
+              className="collection-tabs"
+              role="group"
+              aria-label="Browse rallies"
+            >
+              <button
+                aria-pressed={sort === "best"}
+                onClick={() => setSort("best")}
+              >
+                Best rallies
+              </button>
+              <button
+                aria-pressed={sort === "duration"}
+                onClick={() => setSort("duration")}
+              >
+                Longest rallies
+              </button>
+              <button
+                aria-pressed={sort === "time"}
+                onClick={() => setSort("time")}
+              >
+                Match order
+              </button>
+            </div>
+            <p>
+              {sort === "best"
+                ? "Ranked by visible exchanges, recoveries, and attacks. Each pick explains why."
+                : sort === "duration"
+                  ? "Sorted by playing time, excluding the lead-in and reset. Incomplete rallies are marked."
+                  : "Full points in the order they happened."}
+            </p>
+          </div>
+        )}
+        {collection === "all" && !player && (
+          <p className="scope-note">
+            The archive includes play, between-point footage, and the old
+            unverified detections. Candidate touches are excluded from player
+            counts and reels until confirmed.
+          </p>
+        )}
+        {player && match && !reel && (
+          <PlayerFeedback
+            match={match}
+            player={player}
+            watch={(clipId, time) => {
+              const c = match.clips.find((item) => item.id === clipId)
+              if (c) {
+                choose(c)
+                seekTo.current = time
+              }
+            }}
+          />
         )}
         <div className="library-toolbar">
           <label className="search-field">
@@ -613,28 +725,31 @@ export default function FilmRoom() {
             />
           </label>
           <div className="toolbar-options">
-            <NativeSelect
-              aria-label="Label status"
-              value={filter}
-              onChange={(e) => {
-                setFilter(e.target.value as ViewFilter)
-                setLimit(24)
-              }}
-            >
-              <option value="all">All labels</option>
-              <option value="untagged">No player tags ({unlabeled})</option>
-              <option value="touches">Touch labeled</option>
-              <option value="detected">Detected touches</option>
-              <option value="uncertain">Uncertain touches</option>
-              <option value="dismissed">Dismissed touches</option>
-              <option value="automatic">Auto-tagged</option>
-              <option value="confirmed">Player confirmed</option>
-            </NativeSelect>
+            {collection !== "rallies" && (
+              <NativeSelect
+                aria-label="Label status"
+                value={filter}
+                onChange={(e) => {
+                  setFilter(e.target.value as ViewFilter)
+                  setLimit(24)
+                }}
+              >
+                <option value="all">All labels</option>
+                <option value="untagged">No player tags ({unlabeled})</option>
+                <option value="touches">Touch labeled</option>
+                <option value="detected">Candidate touches</option>
+                <option value="uncertain">Unverified touches</option>
+                <option value="dismissed">Dismissed touches</option>
+                <option value="automatic">Auto-tagged</option>
+                <option value="confirmed">Player confirmed</option>
+              </NativeSelect>
+            )}
             <NativeSelect
               aria-label="Sort clips"
               value={sort}
               onChange={(e) => setSort(e.target.value)}
             >
+              <option value="best">Best rallies first</option>
               <option value="time">Match order</option>
               <option value="latest">Latest first</option>
               <option value="duration">Longest first</option>
@@ -663,12 +778,9 @@ export default function FilmRoom() {
             {filter !== "all" || query ? " found" : ""}
           </p>
           <p className="coverage">
-            {scoped.filter((c) => c.tags.length).length} with player tags ·{" "}
-            {
-              scoped.filter((c) => c.tags.some((t) => t.skill !== "Appearance"))
-                .length
-            }{" "}
-            with touches
+            {collection === "rallies"
+              ? `${scoped.filter((c) => c.analysis?.status === "reviewed").length} reviewed · ${scoped.filter((c) => c.analysis?.status !== "reviewed").length} AI descriptions`
+              : `${scoped.filter((c) => c.tags.length).length} with player tags · ${scoped.filter((c) => hasTouch(c)).length} with supported touches`}
           </p>
         </div>
         {!active && status && (
