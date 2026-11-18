@@ -631,9 +631,9 @@ export default function FilmRoom() {
               </strong>
               <span>
                 {scan.state === "running"
-                  ? `${scan.completed ?? 0} / ${scan.total ?? "…"} windows analyzed · sync to fetch the latest results`
+                  ? `${scan.completed ?? 0} / ${scan.total ?? "…"} windows analyzed`
                   : scan.state === "complete"
-                    ? "Rally descriptions are available in your library"
+                    ? null
                     : scan.phase}
               </span>
             </div>
@@ -645,16 +645,6 @@ export default function FilmRoom() {
               />
             )}
           </div>
-        )}
-        {player && (
-          <p className="scope-note">
-            Reviewed contacts by {player}. Unverified detections are in the
-            Candidate touches filter. Appearance matches stay in{" "}
-            <a href={"/review?player=" + encodeURIComponent(player)}>
-              player review
-            </a>
-            .
-          </p>
         )}
         {collection === "rallies" && (
           <div className="rally-browse">
@@ -682,21 +672,7 @@ export default function FilmRoom() {
                 Match order
               </button>
             </div>
-            <p>
-              {sort === "best"
-                ? "Ranked by visible exchanges, recoveries, and attacks. Each pick explains why."
-                : sort === "duration"
-                  ? "Sorted by playing time, excluding the lead-in and reset. Incomplete rallies are marked."
-                  : "Full points in the order they happened."}
-            </p>
           </div>
-        )}
-        {collection === "all" && !player && (
-          <p className="scope-note">
-            The archive includes play, between-point footage, and the old
-            unverified detections. Candidate touches are excluded from player
-            counts and reels until confirmed.
-          </p>
         )}
         {player && match && !reel && (
           <PlayerFeedback
@@ -780,7 +756,7 @@ export default function FilmRoom() {
           <p className="coverage">
             {collection === "rallies"
               ? `${scoped.filter((c) => c.analysis?.status === "reviewed").length} reviewed · ${scoped.filter((c) => c.analysis?.status !== "reviewed").length} AI descriptions`
-              : `${scoped.filter((c) => c.tags.length).length} with player tags · ${scoped.filter((c) => hasTouch(c)).length} with supported touches`}
+              : `${scoped.filter((c) => c.tags.length).length} tagged · ${scoped.filter((c) => hasTouch(c)).length} touch clips`}
           </p>
         </div>
         {!active && status && (

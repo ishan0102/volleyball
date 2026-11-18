@@ -93,11 +93,7 @@ export function ClipDetails({
                   ? "AI touch candidate"
                   : "Unverified detection · excluded"}
           </strong>
-          <p>
-            The old detector may have assigned a nearby player without a
-            contact. Confirm only if this player actually touches the ball.
-            Otherwise dismiss it.
-          </p>
+          <p>Confirm only visible ball contact by the tagged player.</p>
           <div className="buttons">
             <Button
               size="sm"
@@ -114,7 +110,7 @@ export function ClipDetails({
                   disabled={busy}
                   onClick={() => review(clip, "confirmed")}
                 >
-                  Confirm actual touch
+                  Confirm touch
                 </Button>
               )}
             <Button
@@ -180,9 +176,7 @@ export function ClipDetails({
         (clipDescription(clip) ? (
           <p className="play-description">{clipDescription(clip)}</p>
         ) : (
-          <p className="hint">
-            No play description yet. Edit clip details to add what happened.
-          </p>
+          <p className="hint">No description yet.</p>
         ))}
       {details && (
         <div className="clip-edit">

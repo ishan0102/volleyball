@@ -15,28 +15,21 @@ export function PlayerFeedback({
   return (
     <section className="player-feedback" aria-label="Player feedback">
       <div className="feedback-heading">
-        <h2>Your next practice</h2>
-        <p>
-          Specific observations from your footage. Each note links to its
-          evidence.
-        </p>
+        <h2>Next practice</h2>
       </div>
       <div className="feedback-grid">
         {notes.map((note) => (
           <article key={note.id}>
-            <small>
-              {note.kind === "strength" ? "Keep doing" : "Try next time"} ·{" "}
-              {note.evidence.length === 1
-                ? "One observed example"
-                : `${note.evidence.length} examples`}
-            </small>
+            <small>{note.kind === "strength" ? "Keep" : "Work on"}</small>
             <h3>{note.title}</h3>
             <p>{note.observation}</p>
-            <p className="practice-cue">
-              <strong>Practice cue</strong>
-              {note.action}
-            </p>
-            {note.drill && <p className="practice-drill">{note.drill}</p>}
+            <p className="practice-cue">{note.action}</p>
+            {note.drill && (
+              <details className="practice-drill">
+                <summary>Drill</summary>
+                <p>{note.drill}</p>
+              </details>
+            )}
             <div className="feedback-evidence">
               {note.evidence.map((e) => (
                 <button

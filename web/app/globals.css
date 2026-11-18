@@ -1362,10 +1362,6 @@ kbd {
   font-size: 20px;
   margin-bottom: 5px;
 }
-.feedback-heading p {
-  font-size: 13px;
-  color: #69675f;
-}
 .feedback-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1394,14 +1390,24 @@ kbd {
 .practice-cue {
   margin-top: 12px;
 }
-.practice-cue strong {
-  display: block;
-  font-size: 12px;
-  margin-bottom: 4px;
-}
 .practice-drill {
   color: #69675f;
-  margin-top: 8px;
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.practice-drill summary {
+  cursor: pointer;
+  width: fit-content;
+  padding: 4px 0;
+}
+.practice-drill summary:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+.practice-drill[open] p {
+  margin-top: 6px;
 }
 .feedback-evidence {
   display: flex;

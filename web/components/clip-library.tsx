@@ -55,16 +55,16 @@ export function ClipLibrary({
         <SearchX size={28} />
         <h2>
           {scanning
-            ? "Finding touches across the match"
+            ? "Analyzing footage"
             : player
               ? "No matching touch clips"
               : "No clips match"}
         </h2>
         <p>
           {scanning
-            ? "New clips will appear here when the scan finishes. You can keep browsing while it runs."
+            ? "Analysis is running."
             : player
-              ? "Only labeled ball contacts appear here. Review the footage in All clips to add a touch, or clear your filters."
+              ? "Clear filters or tag a touch in All clips."
               : "Try another player, label status, or search."}
         </p>
         <Button variant="outline" onClick={reset}>
@@ -110,13 +110,6 @@ export function ClipLibrary({
               {clipDescription(c) && (
                 <p className="clip-description">{clipDescription(c)}</p>
               )}
-              {isRally(c) &&
-                (c.analysis?.highlightScore ?? 0) >= 3 &&
-                c.analysis?.highlightReason && (
-                  <p className="highlight-reason">
-                    {c.analysis.highlightReason}
-                  </p>
-                )}
               <div
                 className={"label-state " + (!c.tags.length ? "untagged" : "")}
               >
